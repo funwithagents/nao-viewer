@@ -1,0 +1,36 @@
+---
+code:
+  - pyproject.toml
+tests:
+  - tests/test_project_map.py
+---
+
+# Project
+
+**Status:** Implemented
+
+## Purpose
+
+Structure and tooling for the nao-viewer project itself: Python version, dependency/packaging management with `uv`, repo layout conventions, and development tooling.
+
+## Decided
+
+- **Python version:** 3.12 or 3.13 (`>=3.12,<3.14`). The upper bound comes from the libqi wheels, which exist for cp310–cp313 only.
+- **libqi (`qi`):** pinned to `qi==3.1.6`. It comes from the GitHub Releases of [funwithagents/libqi-python](https://github.com/funwithagents/libqi-python), not PyPI, through per-platform URL entries in `[tool.uv.sources]`. `[tool.uv] environments` limits resolution to the platforms with wheels: macOS arm64 and Linux x86_64.
+- **Runtime dependencies:** `mujoco`, `numpy`, `platformdirs`, `pyyaml`, `trimesh`, `qi`. nao-viewer never imports nao-bridge or nao-local (dependencies go one way: nao-local → nao-viewer → libqi).
+- **No Aldebaran assets:** `.gitignore` blocks mesh, texture and installer files. Meshes and anything built from them live only in `platformdirs.user_data_dir("nao-viewer")`.
+- **Package layout:** `src/` layout — `src/nao_viewer/...` — not flat, to avoid accidentally importing an uninstalled package from the repo root.
+- **Dependency/venv management:** `uv`. Dev tooling lives in the `dev` dependency group (`uv sync --dev`), not in runtime `dependencies`.
+- **Linting/formatting:** `ruff`.
+- **Testing:** `pytest`, in two physically-separated tiers — a fast, deterministic, no-network default run (`tests/`, the only tier `testpaths` collects) and an opt-in live tier (`tests-e2e/`) that calls real external services. Full strategy is specced in [testing.md](testing.md).
+- **Type checking:** `pyright` (`standard` mode), a dev dependency run via `uv run pyright`. Config lives in `[tool.pyright]` in `pyproject.toml`, targeting `src`, `tests`, and `tests-e2e`, pinned to the `.venv`.
+- **Repo shape:**
+  - `src/nao_viewer/` — the package, one module per core concept.
+  - `specs/` — pre-implementation design docs, one per concept (this folder).
+  - `plans/` — implementation plans turning settled specs into buildable steps.
+  - `tests/` at repo root, mirroring the `src/nao_viewer/` module structure.
+  - `tests-e2e/` at repo root, for the live tier above — not collected by the default `pytest` run.
+
+## Open questions
+
+1. **libqi for pip users.** `[tool.uv.sources]` only works for uv-based development; a published wheel would declare a bare `qi` dependency. How pip users get the fork's wheels (find-links URL, a GitHub Pages index, or PyPI under a distinct name) is open in the overview spec. Intel macOS and Windows have no wheels yet.

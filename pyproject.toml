@@ -1,0 +1,59 @@
+[project]
+name = "nao-viewer"
+version = "0.1.0"
+description = "MuJoCo viewer for NAO: mirrors any NAOqi robot or renders nao-local's simulated world, with the NAO model and a license-gated mesh fetcher."
+readme = "README.md"
+authors = [
+    { name = "Thibault Hervier", email = "thibault@fr2g.io" }
+]
+requires-python = ">=3.12,<3.14"  # capped by the libqi wheels (cp312, cp313)
+dependencies = [
+    "mujoco>=3.15.0",
+    "numpy>=2.5.3",
+    "platformdirs>=4.12.4",
+    "pyyaml>=6.0.3",
+    "qi==3.1.6",
+    "trimesh>=5.1.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.29,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+# libqi Python 3 wheels come from the GitHub Releases of the funwithagents fork, not PyPI
+# (how pip users resolve them is an open question in the overview spec). Only macOS arm64
+# and Linux x86_64 wheels exist.
+[tool.uv]
+environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[tool.uv.sources]
+qi = [
+    { url = "https://github.com/funwithagents/libqi-python/releases/download/v3.1.6/qi-3.1.6-cp312-cp312-macosx_15_0_arm64.whl", marker = "sys_platform == 'darwin' and python_version == '3.12'" },
+    { url = "https://github.com/funwithagents/libqi-python/releases/download/v3.1.6/qi-3.1.6-cp313-cp313-macosx_15_0_arm64.whl", marker = "sys_platform == 'darwin' and python_version == '3.13'" },
+    { url = "https://github.com/funwithagents/libqi-python/releases/download/v3.1.6/qi-3.1.6-cp312-cp312-manylinux_2_34_x86_64.whl", marker = "sys_platform == 'linux' and python_version == '3.12'" },
+    { url = "https://github.com/funwithagents/libqi-python/releases/download/v3.1.6/qi-3.1.6-cp313-cp313-manylinux_2_34_x86_64.whl", marker = "sys_platform == 'linux' and python_version == '3.13'" },
+]
+
+[tool.ruff]
+target-version = "py312"  # keep in sync with requires-python
+
+[tool.pytest.ini_options]
+# Only the fast, deterministic tier is collected by default; tests-e2e/ is opt-in.
+testpaths = ["tests"]
+
+[tool.pyright]
+include = ["src", "tests", "tests-e2e"]  # type-check test code too, not just src
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
