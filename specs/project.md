@@ -17,7 +17,7 @@ Structure and tooling for the nao-viewer project itself: Python version, depende
 
 - **Python version:** 3.12 or 3.13 (`>=3.12,<3.14`). The upper bound comes from the libqi wheels, which exist for cp310–cp313 only.
 - **libqi (`qi`):** pinned to `qi==3.1.6`. It comes from the GitHub Releases of [funwithagents/libqi-python](https://github.com/funwithagents/libqi-python), not PyPI, through per-platform URL entries in `[tool.uv.sources]`. `[tool.uv] environments` limits resolution to the platforms with wheels: macOS arm64 and Linux x86_64.
-- **Runtime dependencies:** `mujoco`, `numpy`, `platformdirs`, `pyyaml`, `trimesh`, `qi`. nao-viewer never imports nao-bridge or nao-local (dependencies go one way: nao-local → nao-viewer → libqi).
+- **Runtime dependencies:** `mujoco`, `numpy`, `platformdirs`, `pyyaml`, `trimesh`, `qi`. nao-viewer never imports nao-bridge or nao-sim (dependencies go one way: nao-sim → nao-viewer → libqi).
 - **No Aldebaran assets:** `.gitignore` blocks mesh, texture and installer files. Meshes and anything built from them live only in `platformdirs.user_data_dir("nao-viewer")`.
 - **Package layout:** `src/` layout — `src/nao_viewer/...` — not flat, to avoid accidentally importing an uninstalled package from the repo root.
 - **Dependency/venv management:** `uv`. Dev tooling lives in the `dev` dependency group (`uv sync --dev`), not in runtime `dependencies`.
@@ -33,4 +33,4 @@ Structure and tooling for the nao-viewer project itself: Python version, depende
 
 ## Open questions
 
-1. **libqi for pip users.** `[tool.uv.sources]` only works for uv-based development; a published wheel would declare a bare `qi` dependency. How pip users get the fork's wheels (find-links URL, a GitHub Pages index, or PyPI under a distinct name) is open in the overview spec. Intel macOS and Windows have no wheels yet.
+1. **libqi for pip users.** `[tool.uv.sources]` only works for uv-based development; a published wheel would declare a bare `qi` dependency. How pip users get the fork's wheels (find-links URL, a GitHub Pages index, or PyPI under a distinct name) is undecided. Intel macOS and Windows have no wheels yet.

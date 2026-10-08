@@ -1,6 +1,7 @@
 ---
 code:
   - tests/conftest.py
+  - tests/mock_naoqi.py
   - tests-e2e/conftest.py
   - tests-e2e/support.py
 tests:
@@ -8,7 +9,7 @@ tests:
 
 # Testing
 
-**Status:** Implemented
+**Status:** Updated
 
 ## Purpose
 
@@ -26,7 +27,7 @@ Tests split into two directories, and the split is structural — a directory bo
 - **`tests/` is the normal dev loop.** Fast, deterministic, no real network, no credentials. `pyproject.toml`'s `testpaths = ["tests"]` points the default `uv run pytest` here, so this is what runs on every change and what any contributor or CI can run with zero credentials.
 - **`tests-e2e/` is opt-in.** It calls a real external service — network, credentials, non-deterministic output — so it is deliberately *not* collected by the default run. Because `testpaths` already excludes it, no pytest marker or `--run-e2e` flag is needed: the physical separation is the whole mechanism. Run it explicitly (`uv run pytest tests-e2e`).
 
-**What each tier talks to.** `tests/` never talks to Aldebaran software. Code that needs NAOqi is tested against a **mock NAOqi**: Python 3 qi services (`ALMotion` returning scripted angles and transforms, and so on) registered in a standalone `qi.Session` that listens on a loopback port inside the test process. That is still deterministic and offline. `tests-e2e/` talks to a **live NAOqi endpoint** given by URL: a real robot, or a nao-local container someone started separately. The e2e tier never imports nao-local, so testing against the container adds no package dependency and no cycle (nao-local → nao-viewer stays one-way). The dependency is a running process, not an import.
+**What each tier talks to.** `tests/` never talks to Aldebaran software. Code that needs NAOqi is tested against a **mock NAOqi**: Python 3 qi services (`ALMotion` returning scripted angles and transforms, and so on) registered in a standalone `qi.Session` that listens on a loopback port inside the test process. That is still deterministic and offline. `tests-e2e/` talks to a **live NAOqi endpoint** given by URL: a real robot, or a nao-sim container someone started separately. The e2e tier never imports nao-sim, so testing against the container adds no package dependency and no cycle (nao-sim → nao-viewer stays one-way). The dependency is a running process, not an import.
 
 The `tests/` tier mirrors the `src/nao_viewer/` module layout (`test_<module>.py`, plus the `test_project_map.py` drift-guard); `tests-e2e/` is organized around live scenarios rather than modules.
 
@@ -36,13 +37,33 @@ The `tests/` tier mirrors the `src/nao_viewer/` module layout (`test_<module>.py
 - **Drive the public API like a real caller.** Prefer exercising the public surface the way a consumer would over reaching into internals; assert on the observable result.
 - **In the e2e tier, assert on behavior, not exact output.** Real service responses vary run to run, so a live test asserts a robust property ("a non-empty result came back", "the side effect happened"), never a specific string.
 
+## Mock NAOqi (`tests/mock_naoqi.py`)
+
+nao-viewer owns a small mock rather than borrowing one from nao-bridge, which sits upstream of nao-sim and so of nao-viewer. It implements only what nao-viewer calls.
+
+- **Transport**: a real `qi.Session` listening standalone on `tcp://127.0.0.1:<free port>` inside the test process, with Python objects registered as services. Code under test connects to it by URL, through the same `connect()` it uses against a robot, so the qi path is exercised for real. No Aldebaran software is involved.
+- **Services**:
+  - `ALMotion`: `getBodyNames`, `getAngles(names, useSensors)` (measured and commanded kept separately, so the ghost can be tested), `getTransform(name, frame, useSensors)`, `setStiffnesses`, `angleInterpolation`.
+  - `ALMemory`: `getData`, `insertData`.
+  - Optional `NaoSim` and `ALSystem` services, so all three target identifications can be tested.
+- **Effector transforms**: `getTransform` for effectors comes from the forward kinematics of the committed primitive model. A test can add a fixed error to one effector, so `check-model` is tested both passing and failing.
+- **Control from tests**: a pytest fixture yields `(url, mock)`. The test sets the pose (`mock.set_pose(...)`), can make calls fail or the session drop (`mock.disconnect()`) to exercise reconnection, and can read the calls received.
+
+## Testing the viewer process
+
+The real viewer process (a MuJoCo window, OpenGL, a subprocess) only runs in the live tier. The fast tier tests both sides of the protocol without it:
+
+- **Client side (`tests/`)**: `client.py` is tested against a **fake viewer process**, a protocol server running in a thread that returns canned frames and scripted errors. This covers the handshake, message encoding, `ModeError` on the client side, `ViewerClosed`, errors at launch, and calls from several threads.
+- **Viewer-process side (`tests/`)**: the viewer process's request handling (queueing, mirror refusing `camera_frame`, `status`) is called directly with the render function stubbed. No subprocess and no OpenGL.
+- **Live (`tests-e2e/`)**: `nao_viewer.launch(NAOQI_URL, mode="sim")` starts the real viewer process with its window, on a developer machine with a display. The test fetches real frames, checks they aren't blank, and checks that they change when the head moves.
+
 ## Test isolation
 
 If the package holds process-global or singleton state, both tiers carry an identical autouse fixture (in each tier's `conftest.py`) that resets it before and after every test, so no state — or background timers/threads — leaks across tests. The fixture is duplicated rather than shared because `tests-e2e/` isn't a package that imports from `tests/`, and it's only a few lines.
 
 ## Live tier: skip without an endpoint
 
-A live test needs a NAOqi to talk to, and it must **skip, never fail**, when none is configured. That way anyone without a robot or a container, including CI, can run the tier without breaking it. The endpoint comes from the `NAOQI_URL` environment variable (for example `tcp://127.0.0.1:9559` for nao-local, `tcp://<robot>:9559` for a real NAO). `tests-e2e/support.require_env(NAME)` returns the variable or calls `pytest.skip(...)` when it is unset. Nothing about the endpoint is committed.
+A live test needs a NAOqi to talk to, and it must **skip, never fail**, when none is configured. That way anyone without a robot or a container, including CI, can run the tier without breaking it. The endpoint comes from the `NAOQI_URL` environment variable (for example `tcp://127.0.0.1:9559` for nao-sim, `tcp://<robot>:9559` for a real NAO). `tests-e2e/support.require_env(NAME)` returns the variable or calls `pytest.skip(...)` when it is unset. Nothing about the endpoint is committed.
 
 ## Tooling
 

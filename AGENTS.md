@@ -55,7 +55,7 @@ This is the **spec → code/tests** mapping — the inverse of the module → sp
 
 The mapping is **many-to-many**: a file can be governed by several specs, so the same path legitimately appears in more than one spec's frontmatter.
 
-**Keep it current** (same discipline as statuses): when you move, rename, or delete a file a spec governs — or add a new `src/nao_viewer/` module — update the affected spec's `code:`/`tests:` in the same change. `tests/test_project_map.py` enforces three invariants: every listed path exists, every spec declares a non-empty `code:` list, and every concept module in `src/nao_viewer/` is named by at least one spec (`__init__.py` is exempt as package glue).
+**Keep it current** (same discipline as statuses): when you move, rename, or delete a file a spec governs — or add a new `src/nao_viewer/` module — update the affected spec's `code:`/`tests:` in the same change. Before implementation, a spec's frontmatter names the files its plan will create. `tests/test_project_map.py` enforces three invariants: every path listed by an `Implemented` spec exists (earlier statuses may name files that don't exist yet), every spec declares a non-empty `code:` list, and every concept module in `src/nao_viewer/` is named by at least one spec (`__init__.py` is exempt as package glue).
 
 ## Testing
 
@@ -65,7 +65,7 @@ The mapping is **many-to-many**: a file can be governed by several specs, so the
 
 ### Live/e2e tests
 
-Some tests talk to a live NAOqi: a real robot, or a nao-local container started separately. They live in `tests-e2e/`, separate from `tests/`, so the default `uv run pytest` never runs them. The normal dev loop uses the in-process mock NAOqi instead (see [specs/testing.md](specs/testing.md)). Run the live tier explicitly with `NAOQI_URL=tcp://<host>:9559 uv run pytest tests-e2e`. Without `NAOQI_URL`, every live test **skips**. Never import nao-local or nao-bridge from tests: nao-local depends on nao-viewer, not the other way round.
+Some tests talk to a live NAOqi: a real robot, or a nao-sim container started separately. They live in `tests-e2e/`, separate from `tests/`, so the default `uv run pytest` never runs them. The normal dev loop uses the in-process mock NAOqi instead (see [specs/testing.md](specs/testing.md)). Run the live tier explicitly with `NAOQI_URL=tcp://<host>:9559 uv run pytest tests-e2e`. Without `NAOQI_URL`, every live test **skips**. Never import nao-sim or nao-bridge from tests: nao-sim depends on nao-viewer, not the other way round.
 
 ## Implementation plans
 
