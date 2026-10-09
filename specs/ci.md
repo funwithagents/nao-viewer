@@ -11,16 +11,17 @@ tests:
 
 ## Purpose
 
-The verification gate of [AGENTS.md](../AGENTS.md) (lint, type check, tests) runs on GitHub's hosted runners for every pull request and every push to `main`, so each change gets a machine's verdict, not only a local command. CI runs both test tiers ([testing.md](testing.md)): the fast tier, with a real headless viewer on the mock NAOqi, and the live tier against a real NAOqi that nao-sim builds on the runner. Like [testing.md](testing.md), this is a cross-cutting practice, not a runtime concept: nothing here ships in the library, and the one file that implements it is the workflow.
+The verification gate of [AGENTS.md](../AGENTS.md) (lint, type check, tests) runs on GitHub's hosted runners for every pull request and every push to `main`, so each change gets a machine's verdict, not only a local command. CI runs both test tiers ([testing.md](testing.md)) and as much of each as a hosted runner can: the fast tier on Linux and macOS, with a real headless viewer on the mock NAOqi, and the live tier against a real NAOqi that nao-sim builds on the runner, headless and with windows. Like [testing.md](testing.md), this is a cross-cutting practice, not a runtime concept: nothing here ships in the library, and the one file that implements it is the workflow.
 
 ## Decided
 
 ### The runner
 
-- **GitHub-hosted Linux, the free tier.** Every job runs on `ubuntu-24.04`, pinned by name rather than `ubuntu-latest`, so the image only changes when the pin is bumped on purpose. No self-hosted runner.
-- **CI is the project's Linux target.** Development happens on macOS. The runner is where the Linux paths run: the Linux x86_64 `qi` wheel, the EGL default of a headless viewer ([api.md](api.md), "Headless"), and Docker running nao-sim's amd64 NAOqi with no emulation.
+- **GitHub-hosted runners, the free tier.** The repository is public, so minutes cost nothing, and CI covers every path a runner can run reliably. Runners are pinned by name (`ubuntu-24.04`, `macos-15`) rather than `-latest`, so an image only changes when the pin is bumped on purpose. No self-hosted runner.
+- **Linux runs everything.** CI is the project's Linux target: the Linux x86_64 `qi` wheel, the EGL default of a headless viewer ([api.md](api.md), "Headless"), a windowed viewer under a virtual display, and Docker running nao-sim's amd64 NAOqi with no emulation.
+- **macOS runs the fast tier.** `macos-15` (Apple Silicon) is where nao-viewer is developed: the macOS arm64 `qi` wheel (tagged macOS 15), CGL offscreen rendering under plain `python`, and the real headless viewer test. macOS runners have no Docker, so nao-sim's NAOqi, and with it the live tier, can't run there. A windowed viewer on macOS isn't run either: it would need `mjpython` and an unlocked GUI session on the runner, which is untested (open question 2).
 - **One Python**, 3.12: the floor of `requires-python`, and the version `.python-version` names. uv installs it.
-- **System packages: Mesa's EGL** (`libegl1 libopengl0 libgl1-mesa-dri`) in the two test jobs, for offscreen rendering with no display and no GPU. Nothing else is installed with apt.
+- **System packages, Linux only.** Mesa's EGL (`libegl1 libopengl0 libgl1-mesa-dri`) in the two test jobs, for offscreen rendering with no display and no GPU. The windowed live entry adds a virtual X display and Mesa's GLX (`xvfb xauth libgl1 libglx-mesa0`). Nothing else is installed with apt, and nothing at all on macOS.
 
 ### The workflow
 
@@ -29,10 +30,10 @@ One file, `.github/workflows/ci.yml`. It triggers on `pull_request`, on `push` t
 | Job | What |
 |---|---|
 | `check` | `uv sync --locked`, then `ruff check .`, `ruff format --check .`, `pyright`: the static gate |
-| `fast-tier` | Mesa's EGL; `pytest -rs`, the fast tier (`tests/` only, from `testpaths`), with `MUJOCO_GL=egl` and `NAO_VIEWER_REQUIRE_OFFSCREEN_GL=1` |
-| `e2e-nao-sim` | nao-sim at a pinned commit builds and starts NAOqi 2.1; Mesa's EGL; `pytest tests-e2e -rs` with `NAOQI_URL=tcp://127.0.0.1:9559` |
+| `fast-tier` | Matrix `ubuntu-24.04`, `macos-15`: `pytest -rs`, the fast tier (`tests/` only, from `testpaths`), with `NAO_VIEWER_REQUIRE_OFFSCREEN_GL=1` (and, on Linux, Mesa's EGL and `MUJOCO_GL=egl`) |
+| `e2e-nao-sim` | Matrix `headless`, `window`, on `ubuntu-24.04`: nao-sim at a pinned commit builds and starts NAOqi 2.1; `pytest tests-e2e -rs` with `NAOQI_URL=tcp://127.0.0.1:9559`, the `window` entry with `NAO_VIEWER_E2E_WINDOW=1` under `xvfb-run` |
 
-The three jobs run side by side, each on its own runner, and none waits on another: a run takes as long as its slowest job (the live one).
+The three jobs and their matrix entries (five runners in all) run side by side, and none waits on another: a run takes as long as its slowest entry (a live one). Matrices don't fail fast, so one entry failing leaves the others running. A public repository runs 20 jobs at once, 5 of them on macOS.
 
 - **`--locked`.** The sync fails when `uv.lock` doesn't match `pyproject.toml`, so a dependency edit lands with its relock or not at all.
 - **The format check covers the whole repo** (`.`). `specs/` and `plans/` are excluded in `pyproject.toml`, because ruff also formats Python blocks inside Markdown and the specs' blocks are hand-aligned. A local `ruff format .` is therefore the same command, and touches Python files only.
@@ -41,9 +42,9 @@ The three jobs run side by side, each on its own runner, and none waits on anoth
 
 ### The fast tier in CI
 
-- `MUJOCO_GL=egl` for the whole run. MuJoCo's default on Linux is GLFW, which needs a display, so without this the in-process renderer test would skip. The headless viewer tests get EGL from `launch()` either way.
+- **On Linux, `MUJOCO_GL=egl`** for the whole run. MuJoCo's default on Linux is GLFW, which needs a display, so without this the in-process renderer test would skip. The headless viewer tests get EGL from `launch()` either way. **On macOS**, MuJoCo's default (CGL) renders offscreen as is, so the variable is left empty.
 - `NAO_VIEWER_REQUIRE_OFFSCREEN_GL=1` turns the "no offscreen OpenGL" skips into failures ([testing.md](testing.md), "Testing the viewer process"). A runner that loses its GL packages fails the job instead of passing it on skips.
-- **Expected skips: none.**
+- **Expected skips: none**, on either OS.
 
 ### The live job: a real NAOqi from nao-sim
 
@@ -55,15 +56,17 @@ The three jobs run side by side, each on its own runner, and none waits on anoth
   - **Miss** (a new pin): `fetch-and-build-images`, then `docker save`, then the cache is saved right after the build rather than at the end of the job, so a failing live tier doesn't build again on the next run.
   - **What a pin freezes.** A cached image keeps the base images and the `tts` image's unpinned `pip install` as they were when it was built, until the pin moves. Runs are reproducible, and an upstream change reaches CI only with a bump.
   - **Never pushed.** The images contain Aldebaran's software. They sit in a cache only this repository's workflows restore, and no registry ever receives them.
-  - **Measured** on the first run, before this cache: a cold build takes about 2 minutes (downloads about 16 s, build about 80 s, boot check 28 s), of a 3-minute live job.
-- **Headless.** The live tier opens its viewers headless, its default ([testing.md](testing.md), "Live tier: headless or windowed"). Viewer warnings and errors print live (`--log-cli-level=WARNING`). When the job fails, a last step prints the NAOqi containers' logs.
-- **Expected skips: one**, the mirror test, which needs a window. Any other skip is a regression. Since `NAOQI_URL` is set, a NAOqi that doesn't answer fails the tests; nothing skips for want of an endpoint.
+  - **Measured**: on a miss, `fetch-and-build-images` takes about 2.5 minutes (downloads, build, boot check) and the save 10 s, for a live job of about 3.7 minutes. On a hit, the restore takes 20 s and `docker load` 42 s, for a live job of 2 minutes.
+- **Headless and windowed, one entry each.** The live tier opens its viewers as the run says ([testing.md](testing.md), "Live tier: headless or windowed"). The `headless` entry uses the tier's default and needs no display. The `window` entry sets `NAO_VIEWER_E2E_WINDOW=1` and runs under `xvfb-run`, so the windowed loop (`launch_passive`, the overlay) and the mirror test run against a real NAOqi. Each entry has its own runner and its own NAOqi. Both read the same image cache: on a new pin both miss and build, and the second save is refused because the key already exists, which is harmless.
+- Viewer warnings and errors print live (`--log-cli-level=WARNING`). When an entry fails, a last step prints the NAOqi containers' logs.
+- **Expected skips: one in `headless`**, the mirror test, which needs a window, **and none in `window`**. Any other skip is a regression. Since `NAOQI_URL` is set, a NAOqi that doesn't answer fails the tests; nothing skips for want of an endpoint.
 
 ### Secrets and protection
 
 - **No secret is required**, and none is used. nao-sim is public, so pull requests from forks run the same three jobs.
-- **The status checks to require on `main`** are `check`, `fast-tier` and `e2e-nao-sim`. Requiring them is a repository setting on GitHub, outside the repo.
+- **The status checks to require on `main`** are every entry: `lint, format, types`, `fast tier (ubuntu-24.04)`, `fast tier (macos-15)`, `live tier, nao-sim NAOqi 2.1, headless` and `live tier, nao-sim NAOqi 2.1, window`. Requiring them is a repository setting on GitHub, outside the repo.
 
 ## Open questions
 
 1. **NAOqi 2.8 (NAO V6).** A matrix entry beside 2.1 would catch a model or API difference between V5 and V6, at about twice the download (1.33 GB suite plus a 732 MB robot image) and a second cached image (about 2.4 GB on disk for 2.8, against the 10 GB per repository). Deferred until 2.8 matters to nao-viewer's users.
+2. **A windowed viewer on macOS.** macOS runners have a GUI session, so an `mjpython` window can probably open, but a locked screen makes MuJoCo's viewer hang or crash (reachy-mini-bridge saw both locally). It would run against the mock NAOqi, since there's no nao-sim on macOS, so it needs a windowed test outside the live tier. To try as a non-blocking job (`continue-on-error`) before requiring it.

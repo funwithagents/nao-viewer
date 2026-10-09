@@ -1,9 +1,10 @@
 # Continuous integration — specs/ci.md.
 #
-# Three jobs side by side on GitHub's hosted Linux runners, on every pull request and push to
-# main: `check` (lint, format, types), `fast-tier` (tests/, with a real headless viewer on the
-# mock NAOqi) and `e2e-nao-sim` (tests-e2e/ against a real NAOqi 2.1 that nao-sim builds on the
-# runner). None waits on another. No secret is needed.
+# Three jobs side by side on GitHub's hosted runners, on every pull request and push to main:
+# `check` (lint, format, types), `fast-tier` (tests/, with a real headless viewer on the mock
+# NAOqi; on Linux and macOS) and `e2e-nao-sim` (tests-e2e/ against a real NAOqi 2.1 that
+# nao-sim builds on a Linux runner; headless and windowed). Matrix entries run side by side
+# too, and none waits on another. No secret is needed.
 
 name: CI
 
@@ -21,6 +22,8 @@ env:
   # Mesa's EGL: a headless viewer renders offscreen with no display and no GPU (specs/api.md,
   # "Headless"). libopengl0 is what PyOpenGL loads; the runner image may have it already.
   APT_GL: libegl1 libopengl0 libgl1-mesa-dri
+  # A virtual X display, and Mesa's GLX for MuJoCo's window (GLFW), for the windowed live run.
+  APT_WINDOW: xvfb xauth libgl1 libglx-mesa0
   # The nao-sim commit whose docker/ recipes build the live job's NAOqi; bumped on purpose.
   NAO_SIM_REF: d4cb4e82f947e09b352789e3134ae630f06d5e84
 
@@ -45,12 +48,20 @@ jobs:
         run: uv run pyright
 
   fast-tier:
-    name: fast tier
-    runs-on: ubuntu-24.04
+    name: fast tier (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    strategy:
+      # Linux, CI's own target, and macOS (Apple Silicon), where nao-viewer is developed: the
+      # macOS qi wheel, CGL offscreen rendering under plain python. One OS failing leaves the
+      # other running.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
     steps:
       - uses: actions/checkout@v7
       - name: System packages (offscreen OpenGL)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends -o Acquire::http::Timeout=30 -o Acquire::Retries=3 $APT_GL
@@ -62,17 +73,26 @@ jobs:
         run: uv sync --locked
       - name: Fast tier
         env:
-          # The in-process renderer test renders through EGL too (MuJoCo's Linux default is
-          # GLFW, which needs a display), and a runner without offscreen GL fails the job
-          # instead of skipping the headless viewer tests (specs/ci.md).
-          MUJOCO_GL: egl
+          # On Linux the in-process renderer test renders through EGL too (MuJoCo's Linux
+          # default is GLFW, which needs a display); macOS keeps MuJoCo's default, CGL. A
+          # runner without offscreen GL fails the job instead of skipping the headless viewer
+          # tests (specs/ci.md).
+          MUJOCO_GL: ${{ runner.os == 'Linux' && 'egl' || '' }}
           NAO_VIEWER_REQUIRE_OFFSCREEN_GL: "1"
         run: uv run pytest -rs
 
   e2e-nao-sim:
-    name: live tier, nao-sim NAOqi 2.1, headless
+    name: live tier, nao-sim NAOqi 2.1, ${{ matrix.viewer }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      # Each entry on its own runner with its own NAOqi. headless: the tier's default, the
+      # mirror test skips. window: NAO_VIEWER_E2E_WINDOW=1 under a virtual X display, so the
+      # windowed loop and the mirror test run too. macOS runners have no Docker, so no
+      # nao-sim: the live tier is Linux only (specs/ci.md).
+      fail-fast: false
+      matrix:
+        viewer: [headless, window]
     steps:
       - uses: actions/checkout@v7
       - name: nao-sim (its docker/ recipes and image tooling, at the pinned commit)
@@ -81,10 +101,10 @@ jobs:
           repository: funwithagents/nao-sim
           ref: ${{ env.NAO_SIM_REF }}
           path: nao-sim
-      - name: System packages (offscreen OpenGL)
+      - name: System packages (offscreen OpenGL, and a virtual display for the window entry)
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends -o Acquire::http::Timeout=30 -o Acquire::Retries=3 $APT_GL
+          sudo apt-get install -y --no-install-recommends -o Acquire::http::Timeout=30 -o Acquire::Retries=3 $APT_GL ${{ matrix.viewer == 'window' && '$APT_WINDOW' || '' }}
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
@@ -125,8 +145,16 @@ jobs:
       - name: Live tier
         env:
           NAOQI_URL: tcp://127.0.0.1:9559
-        # Warnings and errors print live, the viewer process's own among them.
-        run: uv run pytest tests-e2e -rs -o log_cli=true --log-cli-level=WARNING
+          NAO_VIEWER_E2E_WINDOW: ${{ matrix.viewer == 'window' && '1' || '' }}
+        # Warnings and errors print live, the viewer process's own among them. The window entry
+        # runs under xvfb-run, which gives the viewer windows an X display.
+        run: |
+          pytest="uv run pytest tests-e2e -rs -o log_cli=true --log-cli-level=WARNING"
+          if [ "${{ matrix.viewer }}" = window ]; then
+            xvfb-run -a -s "-screen 0 1280x1024x24" $pytest
+          else
+            $pytest
+          fi
       - name: NAOqi logs
         if: failure()
         run: docker compose -f nao-sim/docker/compose.yaml --profile 2.1 logs --tail 300
