@@ -9,6 +9,8 @@ from typing import Literal
 import mujoco
 import numpy as np
 
+from nao_viewer import meshes
+
 _log = logging.getLogger(__name__)
 
 _PACKAGE_DIR = Path(__file__).parent
@@ -30,14 +32,16 @@ Variant = Literal["auto", "placeholder", "aldebaran"]
 
 def resolve_variant(variant: Variant = "auto") -> Literal["placeholder", "aldebaran"]:
     """Pick the robot's visuals: Aldebaran's meshes when installed, the placeholder otherwise."""
-    # Installing Aldebaran's meshes (meshes.py, specs/meshes.md) isn't built yet, so they are
-    # never present: "auto" always resolves to the placeholder visuals.
-    if variant in ("auto", "placeholder"):
+    if variant == "placeholder":
         return "placeholder"
+    if variant == "auto":
+        return "aldebaran" if meshes.installed() is not None else "placeholder"
     if variant == "aldebaran":
-        raise FileNotFoundError(
-            "Aldebaran's NAO meshes are not installed; run `nao-viewer fetch-meshes` first"
-        )
+        if meshes.installed() is None:
+            raise FileNotFoundError(
+                "Aldebaran's NAO meshes are not installed; run `nao-viewer fetch-meshes` first"
+            )
+        return "aldebaran"
     raise ValueError(
         f"unknown variant {variant!r}; expected 'auto', 'placeholder' or 'aldebaran'"
     )
@@ -65,11 +69,15 @@ def load_world(
 
     `name` becomes the compiled model's name, which MuJoCo's viewer shows as its window title.
     """
-    resolve_variant(variant)
+    resolved = resolve_variant(variant)
     world = mujoco.MjSpec.from_file(str(_scene_path(scene)))
     if name is not None:
         world.modelname = name
     robot = mujoco.MjSpec.from_file(str(_MODEL_PATH))
+    if resolved == "aldebaran":
+        directory = meshes.installed()
+        assert directory is not None  # resolve_variant checked it
+        meshes.apply_visuals(robot, directory)
     # An empty prefix keeps the robot's names (joints, cameras, sites) as in nao.xml.
     world.worldbody.add_frame().attach_body(robot.body("torso"), "", "")
     return world.compile()

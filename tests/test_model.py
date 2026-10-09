@@ -1,3 +1,4 @@
+import io
 import logging
 import math
 import xml.etree.ElementTree as ET
@@ -6,7 +7,9 @@ from pathlib import Path
 import mujoco
 import numpy as np
 import pytest
+from mesh_archive import install_fake_release
 
+from nao_viewer import meshes
 from nao_viewer import model as nao_model
 from nao_viewer.model import (
     JOINT_NAMES,
@@ -312,13 +315,43 @@ def test_load_world_rejects_an_unknown_scene_name():
         load_world("no-such-scene")
 
 
-def test_variants_without_installed_meshes():
+def test_variants_without_installed_meshes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    install_fake_release(tmp_path, monkeypatch)  # pinned, but never fetched
     assert resolve_variant() == "placeholder"
     assert resolve_variant("placeholder") == "placeholder"
     with pytest.raises(FileNotFoundError, match="nao-viewer fetch-meshes"):
         resolve_variant("aldebaran")
     with pytest.raises(FileNotFoundError, match="nao-viewer fetch-meshes"):
         load_world(variant="aldebaran")
+
+
+class _Terminal(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+def test_variants_with_installed_meshes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    install_fake_release(tmp_path, monkeypatch)
+    meshes.fetch(stdin=_Terminal("yes\n"), stdout=io.StringIO())
+    assert resolve_variant() == "aldebaran"
+    assert resolve_variant("aldebaran") == "aldebaran"
+    assert resolve_variant("placeholder") == "placeholder"
+
+    def visual_types(model: mujoco.MjModel) -> set[int]:
+        return {
+            int(model.geom_type[g])
+            for g in range(model.ngeom)
+            if model.geom_group[g] == 1
+        }
+
+    assert visual_types(load_world("table")) == {mujoco.mjtGeom.mjGEOM_MESH}
+    assert mujoco.mjtGeom.mjGEOM_MESH not in visual_types(
+        load_world(variant="placeholder")
+    )
 
 
 def test_visual_and_collision_geoms_are_separated():

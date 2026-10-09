@@ -1,6 +1,6 @@
 # Agent instructions
 
-Start at [specs/_index.md](specs/_index.md) for an overview of the specs and their status before making design decisions or writing code — it lists each spec and whether it's still open ("Draft"/"Not started"), design-validated ("Stable"), or built ("Implemented"). For what's been (or is being) built, see [plans/_index.md](plans/_index.md), which lists each implementation plan and its status ("Todo"/"In progress"/"Done").
+Start at [specs/_overview.md](specs/_overview.md) for the big picture of nao-viewer (goals, scope, architecture, status), then [specs/_index.md](specs/_index.md) for the list of specs and their status before making design decisions or writing code — it lists each spec and whether it's still open ("Draft"/"Not started"), design-validated ("Stable"), or built ("Implemented"). For what's been (or is being) built, see [plans/_index.md](plans/_index.md), which lists each implementation plan and its status ("Todo"/"In progress"/"Done").
 
 ## Project map
 
@@ -11,13 +11,14 @@ Where things live. This is a coarse, module-level map — for the full file inve
 | Path | What's there |
 |---|---|
 | `src/nao_viewer/` | The library itself — one module per core concept (see below) |
-| `specs/` | Pre-implementation design docs, one per concept, each with a `**Status:**` — indexed by [specs/_index.md](specs/_index.md) |
+| `specs/` | Pre-implementation design docs, one per concept, each with a `**Status:**` — mapped by [specs/_overview.md](specs/_overview.md), indexed by [specs/_index.md](specs/_index.md) |
 | `plans/` | Implementation plans turning settled specs into buildable steps — indexed by [plans/_index.md](plans/_index.md) |
 | `tests/` | Fast, deterministic, no-network tests; mirrors the `src/nao_viewer/` module structure |
 | `tests-e2e/` | Opt-in live tests against a running NAOqi given by `NAOQI_URL` (not collected by default `pytest`) |
 | `typings/` | Local type stubs for pyright (a partial `mujoco` stub: its compiled bindings carry no types) |
 | `examples/configs/` | Ready-to-use viewer config files, kept in sync with [config.md](specs/config.md) by a test |
 | `.github/workflows/` | CI: lint/types, the fast tier and the live tier on nao-sim's NAOqi 2.1 — see [ci.md](specs/ci.md) |
+| `scripts/` | Repository tooling outside the package (CI's pseudo-terminal driver for `fetch-meshes`) — see [ci.md](specs/ci.md) |
 | `third_party/` | Vendored third-party sources with their licenses (the NAO URDF the model was converted from) — see `THIRD_PARTY_NOTICES.md` |
 
 ### `src/nao_viewer/` modules
@@ -34,6 +35,7 @@ Where things live. This is a coarse, module-level map — for the full file inve
 | [`src/nao_viewer/viewer_process.py`](src/nao_viewer/viewer_process.py) | The viewer process: world, pose source, request server, window, camera renders | [api.md](specs/api.md) |
 | [`src/nao_viewer/viewer.py`](src/nao_viewer/viewer.py) | The window: `ViewerState` (posing, status overlay, ghost, attribution) and `run` on MuJoCo's passive viewer | [viewer.md](specs/viewer.md) |
 | [`src/nao_viewer/model.py`](src/nao_viewer/model.py) | The NAO model (`models/nao.xml`) and scenes (`scenes/`): `load_world`, `NaoPose`, `PoseWriter` | [model.md](specs/model.md) |
+| [`src/nao_viewer/meshes.py`](src/nao_viewer/meshes.py) | `fetch-meshes`: the license-gated download and unlock of nao-meshes' encrypted OBJ/PNG archive, `installed`, `remove`, and `apply_visuals` swapping the placeholder visuals for Aldebaran's meshes | [meshes.md](specs/meshes.md) |
 | [`src/nao_viewer/check_model.py`](src/nao_viewer/check_model.py) | `check-model`: moves a NAOqi through random configurations and compares its effectors with the model's sites | [check_model.md](specs/check_model.md) |
 | [`src/nao_viewer/cli.py`](src/nao_viewer/cli.py) | The `nao-viewer` command: `view` and `check-model`, argument parsing only | [cli.md](specs/cli.md) |
 

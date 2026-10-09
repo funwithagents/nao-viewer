@@ -4,6 +4,7 @@ import argparse
 import logging
 import sys
 from collections.abc import Callable, Sequence
+from pathlib import Path
 
 from nao_viewer.client import LaunchError, NaoViewer
 from nao_viewer.config import ConfigError
@@ -62,6 +63,23 @@ def _parser() -> argparse.ArgumentParser:
     check.add_argument(
         "--allow-real", action="store_true", help="run against a real robot too"
     )
+
+    fetch = commands.add_parser(
+        "fetch-meshes",
+        help="install Aldebaran's NAO meshes (CC BY-NC-ND 4.0, non-commercial) after a license prompt",
+    )
+    fetch.add_argument(
+        "--archive",
+        metavar="PATH",
+        type=Path,
+        help="a local copy of the nao-meshes archive (checked like a download)",
+    )
+    fetch.add_argument(
+        "--force", action="store_true", help="install again even if already installed"
+    )
+    fetch.add_argument(
+        "--remove", action="store_true", help="delete the installed meshes instead"
+    )
     return parser
 
 
@@ -108,6 +126,28 @@ def _check_model(args: argparse.Namespace) -> int:
     return 0 if report.passed else _EXIT_FAILURE
 
 
+def _fetch_meshes(args: argparse.Namespace) -> int:
+    from nao_viewer import meshes
+
+    if args.remove:
+        if args.archive or args.force:
+            _error("--remove takes neither --archive nor --force")
+            return _EXIT_USAGE
+        removed = meshes.remove()
+        print(f"removed {removed}" if removed else "nothing installed")
+        return 0
+    try:
+        meshes.fetch(
+            archive=args.archive, force=args.force, stdin=sys.stdin, stdout=sys.stdout
+        )
+    except (meshes.MeshesError, OSError) as exc:
+        _error(exc)
+        return _EXIT_FAILURE
+    except KeyboardInterrupt:
+        return _EXIT_INTERRUPTED
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     level = (
@@ -125,4 +165,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     if args.command == "view":
         return _view(args)
+    if args.command == "fetch-meshes":
+        return _fetch_meshes(args)
     return _check_model(args)

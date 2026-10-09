@@ -19,6 +19,7 @@ Implementation plans for nao-viewer — each plan turns a settled part of a spec
 | [202610091309_ci.md](202610091309_ci.md) | CI on GitHub's Linux runners: `check`, `fast-tier` (real headless viewer, GL required) and `e2e-nao-sim` (nao-sim's NAOqi 2.1 at a pinned commit, vendor files cached) (implements [ci.md](../specs/ci.md), [testing.md](../specs/testing.md)) | Done |
 | [202610091335_ci-image-cache.md](202610091335_ci-image-cache.md) | The live job caches nao-sim's built images (`docker save`/`load`, keyed on the nao-sim pin) instead of Aldebaran's vendor files (implements [ci.md](../specs/ci.md)) | Done |
 | [202610091402_ci-macos-and-window.md](202610091402_ci-macos-and-window.md) | The live tier headless and windowed (under Xvfb); a macOS fast tier tried and dropped, its runners having no OpenGL (implements [ci.md](../specs/ci.md)) | Done |
+| [202610091455_aldebaran-meshes.md](202610091455_aldebaran-meshes.md) | `fetch-meshes` (license prompt, nao-meshes' pinned encrypted archive downloaded and unlocked, `--archive`, `--force`, `--remove`), the visual table, `variant="aldebaran"` loading, fast tests on a test-built archive, the e2e meshes test and the `meshes` CI job (implements [meshes.md](../specs/meshes.md), [project.md](../specs/project.md), [cli.md](../specs/cli.md), [testing.md](../specs/testing.md), [ci.md](../specs/ci.md)) | Done |
 
 ## Status legend
 

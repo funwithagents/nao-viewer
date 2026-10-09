@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 import sys
@@ -5,9 +6,10 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from mesh_archive import install_fake_release
 from mock_naoqi import MockNaoqi
 
-from nao_viewer import client
+from nao_viewer import client, meshes
 from nao_viewer.cli import main
 
 FAKE_VIEWER = Path(__file__).with_name("fake_viewer_process.py")
@@ -203,3 +205,43 @@ def test_verbose_adds_debug_messages(
     assert "sample 2/2 done" not in capsys.readouterr().err
     assert main(["-v", "check-model", url, "--samples", "2", "--seed", "3"]) == 0
     assert "DEBUG nao_viewer.check_model: sample 2/2 done" in capsys.readouterr().err
+
+
+# --- fetch-meshes ----------------------------------------------------------------------
+
+
+def test_fetch_meshes_refuses_a_piped_stdin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    install_fake_release(tmp_path, monkeypatch)
+    monkeypatch.setattr(sys, "stdin", io.StringIO("yes\n"))
+    assert main(["fetch-meshes"]) == 1
+    captured = capsys.readouterr()
+    assert (
+        "nao-viewer: error: fetch-meshes needs an interactive terminal" in captured.err
+    )
+    assert meshes.installed() is None
+
+
+def test_fetch_meshes_remove(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    install_fake_release(tmp_path, monkeypatch)
+    assert main(["fetch-meshes", "--remove"]) == 0
+    assert capsys.readouterr().out == "nothing installed\n"
+
+    class Terminal(io.StringIO):
+        def isatty(self) -> bool:
+            return True
+
+    monkeypatch.setattr(sys, "stdin", Terminal("yes\n"))
+    assert main(["fetch-meshes"]) == 0
+    assert meshes.installed() is not None
+    assert main(["fetch-meshes", "--remove"]) == 0
+    assert capsys.readouterr().out.endswith(f"removed {meshes.data_dir()}\n")
+    assert meshes.installed() is None
+
+
+def test_fetch_meshes_remove_takes_no_other_option(capsys: pytest.CaptureFixture[str]):
+    assert main(["fetch-meshes", "--remove", "--force"]) == 2
+    assert "--remove takes neither" in capsys.readouterr().err

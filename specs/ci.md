@@ -1,6 +1,7 @@
 ---
 code:
   - .github/workflows/ci.yml
+  - scripts/ci_fetch_meshes.py
   - pyproject.toml
 tests:
 ---
@@ -31,14 +32,15 @@ One file, `.github/workflows/ci.yml`. It triggers on `pull_request`, on `push` t
 |---|---|
 | `check` | `uv sync --locked`, then `ruff check .`, `ruff format --check .`, `pyright`: the static gate |
 | `fast-tier` | Mesa's EGL; `pytest -rs`, the fast tier (`tests/` only, from `testpaths`), with `MUJOCO_GL=egl` and `NAO_VIEWER_REQUIRE_OFFSCREEN_GL=1` |
+| `meshes` | Mesa's EGL; `nao-viewer fetch-meshes` under a pseudo-terminal that types `yes`; `pytest tests-e2e/test_meshes_live.py -rs` with `MUJOCO_GL=egl`, `NAO_VIEWER_REQUIRE_MESHES=1` and `NAO_VIEWER_REQUIRE_OFFSCREEN_GL=1` |
 | `e2e-nao-sim` | Matrix `headless`, `window`, on `ubuntu-24.04`: nao-sim at a pinned commit builds and starts NAOqi 2.1; `pytest tests-e2e -rs` with `NAOQI_URL=tcp://127.0.0.1:9559`, the `window` entry with `NAO_VIEWER_E2E_WINDOW=1` under `xvfb-run` |
 
-The three jobs and the live job's two entries (four runners in all) run side by side, and none waits on another: a run takes as long as its slowest entry (a live one). The live matrix doesn't fail fast, so one entry failing leaves the other running.
+The four jobs and the live job's two entries (five runners in all) run side by side, and none waits on another: a run takes as long as its slowest entry (a live one). The live matrix doesn't fail fast, so one entry failing leaves the other running.
 
 - **`--locked`.** The sync fails when `uv.lock` doesn't match `pyproject.toml`, so a dependency edit lands with its relock or not at all.
 - **The format check covers the whole repo** (`.`). `specs/` and `plans/` are excluded in `pyproject.toml`, because ruff also formats Python blocks inside Markdown and the specs' blocks are hand-aligned. A local `ruff format .` is therefore the same command, and touches Python files only.
 - **uv's cache** is kept by `astral-sh/setup-uv` (`enable-cache`, keyed on the lock files).
-- **Timeouts**: `check` 10 minutes, `fast-tier` 15, `e2e-nao-sim` 30 (a cold run downloads about 800 MB and builds two images). A hung test fails its job in minutes, not hours.
+- **Timeouts**: `check` 10 minutes, `fast-tier` 15, `meshes` 15, `e2e-nao-sim` 30 (a cold run downloads about 800 MB and builds two images). A hung test fails its job in minutes, not hours.
 
 ### The fast tier in CI
 
@@ -60,12 +62,18 @@ The three jobs and the live job's two entries (four runners in all) run side by 
   - **Measured**: on a miss, `fetch-and-build-images` takes about 2.5 minutes (downloads, build, boot check) and the save 10 s, for a live job of about 3.7 minutes. On a hit, the restore takes 20 s and `docker load` 42 s, for a live job of 2 minutes.
 - **Headless and windowed, one entry each.** The live tier opens its viewers as the run says ([testing.md](testing.md), "Live tier: headless or windowed"). The `headless` entry uses the tier's default and needs no display. The `window` entry sets `NAO_VIEWER_E2E_WINDOW=1` and runs under `xvfb-run`, so the windowed loop (`launch_passive`, the overlay) and the mirror test run against a real NAOqi. Each entry has its own runner and its own NAOqi. Both read the same image cache: on a new pin both miss and build, and the second save is refused because the key already exists, which is harmless.
 - Viewer warnings and errors print live (`--log-cli-level=WARNING`). When an entry fails, a last step prints the NAOqi containers' logs.
-- **Expected skips: one in `headless`**, the mirror test, which needs a window, **and none in `window`**. Any other skip is a regression. Since `NAOQI_URL` is set, a NAOqi that doesn't answer fails the tests; nothing skips for want of an endpoint.
+- **Expected skips: in `headless`, the mirror test**, which needs a window, **and in both entries the meshes test**, which runs in its own job. Any other skip is a regression. Since `NAOQI_URL` is set, a NAOqi that doesn't answer fails the tests; nothing skips for want of an endpoint.
+
+### The meshes job: Aldebaran's meshes, fetched each run
+
+- **Accepted like a person would.** `fetch-meshes` has no flag or variable that skips the license prompt ([meshes.md](meshes.md)), and CI doesn't get one. A step drives the command through a pseudo-terminal (`scripts/ci_fetch_meshes.py`, on the standard library's `pty`): it waits for the prompt and types `yes`. Running the job is the maintainer accepting the license for CI.
+- **Never cached.** The nao-meshes archive is downloaded, checked and unlocked on every run. Neither the archive nor the meshes go into the Actions cache or an artifact, and they disappear with the runner.
+- **Expected skips: none.** `NAO_VIEWER_REQUIRE_MESHES=1` turns a missing install into a failure ([testing.md](testing.md)).
 
 ### Secrets and protection
 
-- **No secret is required**, and none is used. nao-sim is public, so pull requests from forks run the same three jobs.
-- **The status checks to require on `main`** are every entry: `lint, format, types`, `fast tier`, `live tier, nao-sim NAOqi 2.1, headless` and `live tier, nao-sim NAOqi 2.1, window`. Requiring them is a repository setting on GitHub, outside the repo.
+- **No secret is required**, and none is used. nao-sim is public, so pull requests from forks run the same four jobs.
+- **The status checks to require on `main`** are every entry: `lint, format, types`, `fast tier`, `meshes`, `live tier, nao-sim NAOqi 2.1, headless` and `live tier, nao-sim NAOqi 2.1, window`. Requiring them is a repository setting on GitHub, outside the repo.
 
 ## Open questions
 

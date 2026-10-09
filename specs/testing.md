@@ -23,12 +23,12 @@ Tests split into two directories, and the split is structural — a directory bo
 | Tier | Directory | Network | Deterministic | Runs by default |
 |---|---|---|---|---|
 | Unit / integration | `tests/` | never | yes | **yes** |
-| Live / e2e | `tests-e2e/` | a running NAOqi | no | **no** |
+| Live / e2e | `tests-e2e/` | a running NAOqi, or a real mesh install | no | **no** |
 
 - **`tests/` is the normal dev loop.** Fast, deterministic, no real network, no credentials. `pyproject.toml`'s `testpaths = ["tests"]` points the default `uv run pytest` here, so this is what runs on every change and what any contributor or CI can run with zero credentials.
 - **`tests-e2e/` is opt-in.** It calls a real external service — network, credentials, non-deterministic output — so it is deliberately *not* collected by the default run. Because `testpaths` already excludes it, no pytest marker or `--run-e2e` flag is needed: the physical separation is the whole mechanism. Run it explicitly (`uv run pytest tests-e2e`).
 
-**What each tier talks to.** `tests/` never talks to Aldebaran software. Code that needs NAOqi is tested against a **mock NAOqi**: Python 3 qi services (`ALMotion` returning scripted angles and transforms, and so on) registered in a standalone `qi.Session` that listens on a loopback port inside the test process. That is still deterministic and offline. `tests-e2e/` talks to a **live NAOqi endpoint** given by URL: a real robot, or a nao-sim container someone started separately. The e2e tier never imports nao-sim, so testing against the container adds no package dependency and no cycle (nao-sim → nao-viewer stays one-way). The dependency is a running process, not an import.
+**What each tier talks to.** `tests/` never talks to Aldebaran software. Code that needs NAOqi is tested against a **mock NAOqi**: Python 3 qi services (`ALMotion` returning scripted angles and transforms, and so on) registered in a standalone `qi.Session` that listens on a loopback port inside the test process. That is still deterministic and offline. `tests-e2e/` talks to a **live NAOqi endpoint** given by URL: a real robot, or a nao-sim container someone started separately. It also holds the end-to-end test of Aldebaran's meshes, which needs no NAOqi but a real install made by `fetch-meshes` (see "E2e tier: Aldebaran's meshes" below). The e2e tier never imports nao-sim, so testing against the container adds no package dependency and no cycle (nao-sim → nao-viewer stays one-way). The dependency is a running process, not an import.
 
 The `tests/` tier mirrors the `src/nao_viewer/` module layout (`test_<module>.py`, plus the `test_project_map.py` drift-guard); `tests-e2e/` is organized around live scenarios rather than modules.
 
@@ -80,6 +80,10 @@ One run opens its viewers one way, chosen by an environment variable, as reachy-
 - `support.window_requested()` reads `NAO_VIEWER_E2E_WINDOW`: `1`, `true`, `yes` or `on` (any case) mean windowed, and anything else, including unset, means headless. `support.require_window()` skips a test that only exists with a window, naming the variable.
 - **A windowed run without a display fails, it does not skip.** The run asked for windows, so a window that can't open is a real failure.
 - The live tier talks to a real NAOqi, never to the mock. The fast tier already runs a real headless viewer against the mock, and `check-model` against the mock would compare the model with itself: the mock computes its effectors from `nao.xml`. What only the live tier checks is the real NAOqi API, target identification, the model's kinematics, and the window.
+
+## E2e tier: Aldebaran's meshes
+
+`tests-e2e/test_meshes_live.py` loads the world with `variant="aldebaran"` from the meshes `fetch-meshes` installed, and renders it offscreen ([meshes.md](meshes.md), Testing). It needs neither `NAOQI_URL` nor a window, and **skips** when no complete install is found. With `NAO_VIEWER_REQUIRE_MESHES` set, the skip becomes a failure, as `NAO_VIEWER_REQUIRE_OFFSCREEN_GL` does for the fast tier. CI's `meshes` job sets it ([ci.md](ci.md)). The fast tier never touches an Aldebaran file: its mesh tests generate Collada files of their own at test time.
 
 ## Tooling
 

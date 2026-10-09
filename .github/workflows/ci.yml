@@ -73,6 +73,34 @@ jobs:
           NAO_VIEWER_REQUIRE_OFFSCREEN_GL: "1"
         run: uv run pytest -rs
 
+  meshes:
+    name: meshes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: System packages (offscreen OpenGL)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends -o Acquire::http::Timeout=30 -o Acquire::Retries=3 $APT_GL
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Sync (against the lock)
+        run: uv sync --locked
+      # fetch-meshes has no way to skip its license prompt: the script answers it through a
+      # pseudo-terminal, as a person would. Running this job is the maintainer accepting the
+      # license for CI. The archive is fetched every run and never cached (specs/ci.md).
+      - name: Fetch Aldebaran's meshes (accepting their license)
+        run: uv run python scripts/ci_fetch_meshes.py
+      - name: Meshes e2e test
+        env:
+          MUJOCO_GL: egl
+          NAO_VIEWER_REQUIRE_MESHES: "1"
+          NAO_VIEWER_REQUIRE_OFFSCREEN_GL: "1"
+        run: uv run pytest tests-e2e/test_meshes_live.py -rs
+
   e2e-nao-sim:
     name: live tier, nao-sim NAOqi 2.1, ${{ matrix.viewer }}
     runs-on: ubuntu-24.04

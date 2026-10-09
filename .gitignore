@@ -29,6 +29,7 @@ dist/
 *.obj
 *.msh
 *.run
+*.zip
 meshes/
 texture/
 textures/

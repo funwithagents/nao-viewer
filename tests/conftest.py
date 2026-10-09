@@ -11,6 +11,20 @@ from collections.abc import Iterator
 import pytest
 from mock_naoqi import MockNaoqi
 
+from nao_viewer import meshes
+
+
+@pytest.fixture(autouse=True, scope="session")
+def no_installed_meshes(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """Keep the developer's own Aldebaran meshes out: "auto" means placeholder here, and
+    no test writes to the real data directory. Mesh tests install a release of their own.
+
+    Session-wide, so it is in place before the module-scoped worlds are loaded."""
+    empty = tmp_path_factory.mktemp("no-meshes")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(meshes, "data_dir", lambda: empty)
+        yield
+
 
 @pytest.fixture
 def mock_naoqi() -> Iterator[tuple[str, MockNaoqi]]:
