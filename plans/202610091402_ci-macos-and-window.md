@@ -1,6 +1,6 @@
 # CI: the live tier windowed, and no macOS job
 
-**Status:** In progress
+**Status:** Done
 
 Implements [specs/ci.md](../specs/ci.md) ("The runner", "The workflow", "The live job"): `e2e-nao-sim` becomes a matrix over `headless` and `window`, the latter under a virtual X display. A macOS fast tier was tried and removed: its runners have no OpenGL, so it could not test the viewer.
 
@@ -21,4 +21,4 @@ Implements [specs/ci.md](../specs/ci.md) ("The runner", "The workflow", "The liv
 
 - The workflow validates against GitHub's schema.
 - In an `ubuntu:24.04` container with only those packages, the live viewer tests pass windowed under `xvfb-run` against a mock NAOqi, the mirror test included (2 passed).
-- On GitHub: the four entries green, with the expected skips.
+- On GitHub: the four entries green, with the expected skips. Done on [run 37928393014](https://github.com/funwithagents/nao-viewer/actions/runs/37928393014): fast tier 156 passed; live headless 2 passed, the mirror test skipped; live window 3 passed. The live entries took about 2 minutes, on cache hits.
