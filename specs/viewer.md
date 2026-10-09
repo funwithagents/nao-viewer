@@ -26,11 +26,11 @@ The window: it poses the model from a [pose source](source.md) and draws it, wit
 
 ### Loop
 
-`run(model, source, *, ghost=False, attribution=None, on_frame=None)` runs on the main thread until the window closes:
+`run(model, source, *, ghost=False, attribution=None, on_frame=None, stop=None)` runs until the window closes or `stop` (a `threading.Event`) is set:
 
 1. `sample = source.latest()`; if its `seq` is new, `PoseWriter.apply` writes it into `data` (which runs `mj_kinematics` and `mj_camlight`).
 2. Update the ghost and the overlay.
-3. Call `on_frame(model, data)` if given. The viewer process ([api.md](api.md)) uses this hook to serve camera renders between frames, on the thread that owns the window.
+3. Call `on_frame(model, data, sample)` if given, where `sample` is the sample the model is posed with (`None` before the first). The viewer process ([api.md](api.md)) uses this hook to serve camera renders between frames, on the thread that owns the window.
 4. `handle.sync()`, then sleep to the next 1/60 s tick (ticks on a fixed schedule, as in [source.md](source.md)).
 
 Steps 1 and 2 live in a `ViewerState` class (posing, overlay texts, ghost geoms, key handling) that works without a window: the fast tests drive it offscreen with a fake `PoseSource` and an `MjvScene`. `run` only wires it to `launch_passive`, and is tested in the live tier.

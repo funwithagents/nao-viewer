@@ -1,5 +1,6 @@
 """The window: poses the model from a pose source and draws it, with no physics."""
 
+import threading
 import time
 from collections.abc import Callable
 
@@ -46,6 +47,7 @@ class ViewerState:
         self.model = model
         self.data = mujoco.MjData(model)
         self.show_status = True
+        self.sample: Sample | None = None  # the sample the model is posed with
         self._source = source
         self._writer = PoseWriter(model)
         self._ghost = mujoco.MjData(model) if ghost else None
@@ -61,6 +63,7 @@ class ViewerState:
         if sample is None or sample.seq == self._seq:
             return None
         self._seq = sample.seq
+        self.sample = sample
         self._writer.apply(self.data, sample.pose)
         if self._ghost is not None and sample.commanded is not None:
             self._writer.apply(self._ghost, sample.commanded)
@@ -159,9 +162,16 @@ def run(
     *,
     ghost: bool = False,
     attribution: str | None = None,
-    on_frame: Callable[[mujoco.MjModel, mujoco.MjData], None] | None = None,
+    on_frame: Callable[[mujoco.MjModel, mujoco.MjData, Sample | None], None]
+    | None = None,
+    stop: threading.Event | None = None,
 ) -> None:
-    """Show the robot in a MuJoCo window until it is closed. On macOS, needs mjpython."""
+    """Show the robot in a MuJoCo window until it is closed or `stop` is set. On macOS, needs mjpython.
+
+    `on_frame(model, data, sample)` runs between frames, on this thread, with the sample the model
+    is posed with.
+    """
+    stop = stop or threading.Event()
     state = ViewerState(model, source, ghost=ghost, attribution=attribution)
     with mujoco.viewer.launch_passive(
         model,
@@ -177,17 +187,17 @@ def run(
             handle.cam.azimuth = 150
             handle.cam.elevation = -15
         due = time.monotonic()
-        while handle.is_running():
+        while handle.is_running() and not stop.is_set():
             with handle.lock():
                 state.update()
                 state.draw_ghost(handle.user_scn)
             handle.set_texts(state.texts(time.monotonic()))
             if on_frame is not None:
-                on_frame(model, state.data)
+                on_frame(model, state.data, state.sample)
             handle.sync()
             due += FRAME_PERIOD
             remaining = due - time.monotonic()
             if remaining > 0:
-                time.sleep(remaining)
+                stop.wait(remaining)
             else:
                 due = time.monotonic()

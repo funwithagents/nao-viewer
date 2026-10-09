@@ -76,6 +76,7 @@ def test_update_poses_the_model_from_new_samples_only(world: mujoco.MjModel):
 
     first = source.push({"HeadYaw": 0.6})
     assert state.update() is first
+    assert state.sample is first
     assert joint(state, "HeadYaw") == pytest.approx(0.6)
 
     state.data.qpos[world.jnt_qposadr[world.joint("HeadYaw").id]] = 0.0

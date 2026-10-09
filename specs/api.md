@@ -9,11 +9,13 @@ tests:
   - tests/test_client.py
   - tests/test_protocol.py
   - tests/test_viewer_process.py
+  - tests/fake_viewer_process.py
+  - tests-e2e/test_viewer_live.py
 ---
 
 # Viewer API
 
-**Status:** Draft
+**Status:** Implemented
 
 ## Purpose
 
@@ -29,7 +31,6 @@ The mode is an argument of `launch`, because it changes what the viewer does:
 |---|---|---|
 | For | Watching any NAO, typically a real robot | nao-sim's simulated world (or a plain virtual robot) |
 | Pose | From NAOqi | From NAOqi |
-| Default scene | `"empty"` (floor and light) | `"table"` (objects in front of the robot) |
 | `camera_frame` | Refused with `ModeError`. A real robot has its own cameras, served by `ALVideoDevice`. | Renders what the head cameras see in the simulated world |
 | Window title | `MuJoCo : nao-viewer · mirror · <url>` | `MuJoCo : nao-viewer · sim · <url>` |
 
@@ -40,7 +41,7 @@ Both modes run the same [viewer loop](viewer.md) and [pose source](source.md). T
 ```python
 import nao_viewer
 
-with nao_viewer.launch("tcp://127.0.0.1:9559", mode="sim") as viewer:
+with nao_viewer.launch("tcp://127.0.0.1:9559", mode="sim", scene="table") as viewer:
     frame = viewer.camera_frame("top", 640, 480)      # RGB numpy image
     print(viewer.status())
     viewer.wait()                                     # until the window is closed
@@ -70,7 +71,7 @@ class CameraFrame:
 @dataclass(frozen=True)
 class ViewerStatus:
     mode: str                # mirror / sim
-    target: str              # real / nao-sim / virtual (source.md)
+    target: str | None       # real / nao-sim / virtual (source.md); None until NAOqi first connects
     naoqi_version: str | None
     url: str
     variant: str             # placeholder / aldebaran (model.md)
@@ -78,12 +79,13 @@ class ViewerStatus:
     pose_seq: int
     data_age: float | None   # s; None before the first sample
 
+class LaunchError(RuntimeError): ... # the viewer process couldn't start (message + its stderr tail)
 class ViewerClosed(Exception): ...   # raised by calls after the viewer has exited
 class ModeError(Exception): ...      # the request isn't available in this mode
 ```
 
-- `scene` is either a bundled scene name (`"empty"`, `"table"`) or a path to a user MJCF file ([model.md](model.md), Scenes). When it is omitted, the mode's default is used.
-- `launch` returns once the viewer is up, even if NAOqi is unreachable. The viewer keeps reconnecting ([source.md](source.md)), and `status().data_age` stays `None` until poses arrive. Errors only the viewer process can detect (an unknown scene, `variant="aldebaran"` without installed meshes) are reported by the viewer process and raised from `launch`.
+- `scene` is either a bundled scene name (`"empty"`, `"table"`) or a path to a user MJCF file ([model.md](model.md), Scenes). When it is omitted, both modes use `"empty"`: by default the world is NAO alone on a floor. A caller that wants something in front of the cameras passes a scene, for example `scene="table"`.
+- `launch` returns once the viewer is up, even if NAOqi is unreachable. The viewer keeps reconnecting ([source.md](source.md)), and `status().data_age` stays `None` until poses arrive. Errors only the viewer process can detect (an unknown scene, `variant="aldebaran"` without installed meshes) are reported by the viewer process and raised from `launch` as `LaunchError`.
 - `camera_frame` is checked on the client side first, so mirror mode raises `ModeError` without a round trip; the viewer process refuses it too. In sim mode it blocks until the frame is rendered, which takes about one frame (17 ms) plus render time. Calls from several threads are serialized.
 - `nao_viewer/__init__.py` exports only the names above. Importing it loads neither `mujoco` nor `qi`: `client.py` uses the standard library and `numpy` only, so importing nao-viewer costs nao-sim nothing.
 
@@ -93,11 +95,11 @@ Two processes are involved. The **caller's process** is the program that calls `
 
 - `launch` starts `<python> -m nao_viewer.viewer_process <JSON config>` as a subprocess:
   - `<python>` is `mjpython` next to `sys.executable` on macOS, and `sys.executable` elsewhere.
-  - If `mjpython` is missing, `launch` raises an error that says why.
+  - If `mjpython` is missing, `launch` raises `LaunchError` saying why.
 - The viewer process loads the world ([model.md](model.md)), builds a `NaoqiSource` ([source.md](source.md)), then runs the [viewer](viewer.md) loop. Every viewer has a window.
-- It binds a loopback port and prints `NAO_VIEWER_READY port=<n> protocol=1` as its first stdout line, or `NAO_VIEWER_ERROR <message>` and exits 1. `launch` waits for that line up to `timeout`, then connects and sends `hello`. On a timeout or an early exit, `launch` raises with the tail of the viewer process's stderr.
-- **Lifetime is tied to the caller**: the viewer process exits when its control connection closes. That covers `close()`, and the caller's process exiting or crashing, so a viewer window is never orphaned. Closing the window also ends the viewer process; the next call raises `ViewerClosed`, and `wait()` returns.
-- A server thread reads requests and queues them. In sim mode, camera renders are served from the render loop through the viewer's `on_frame` hook, because rendering must happen on the thread that owns the OpenGL context. There is one `mujoco.Renderer` per requested resolution, using the model cameras `CameraTop`/`CameraBottom`. In mirror mode no renderer is created, and `camera_frame` is refused with the error `mode`.
+- It binds a loopback port, and once the window has drawn its first frame prints `NAO_VIEWER_READY port=<n> protocol=1` on stdout; on an error before that (unknown scene, missing meshes) it prints `NAO_VIEWER_ERROR <message>` and exits 1. Waiting for the first frame means `launch` returns with the window actually open, and a window that can't open (no display) is a launch failure. `launch` waits for that line up to `timeout` (other stdout lines, such as libqi's own log lines, which it writes to stdout, are relayed at `DEBUG`), then connects and sends `hello`. On a timeout, an early exit or `NAO_VIEWER_ERROR`, `launch` kills the viewer process if needed and raises `LaunchError` with the tail of its stderr.
+- **Lifetime is tied to the caller**: the viewer process exits when its control connection closes. That covers `close()`, and the caller's process exiting or crashing, so a viewer window is never orphaned. It also exits if no connection arrives within `timeout` of its ready line (a caller that gave up). Closing the window also ends the viewer process; the next call raises `ViewerClosed`, and `wait()` returns.
+- A server thread reads requests and queues them; the render loop answers them all through the viewer's `on_frame` hook ([viewer.md](viewer.md)), between frames. Camera renders must happen there, on the thread that owns the renderers' OpenGL contexts, and answering every op in one place keeps the state consistent; a reply waits at most one frame (17 ms). There is one `mujoco.Renderer` per requested resolution, using the model cameras `CameraTop`/`CameraBottom`, with the model's offscreen buffer enlarged when a request needs it. A frame reports the `seq` and age of the sample the model was posed with. In mirror mode no renderer is created, and `camera_frame` is refused with the error `mode`.
 - `close()` sends `stop`, waits up to 5 s, then terminates the viewer process.
 - **Viewer-process logs reach the caller's logging**: after the ready line, the viewer process logs to stderr, one record per line, with its level in the line. A reader thread in `client.py` drains stderr and passes each line to the `nao_viewer.viewer_process` logger at that level. Lines without a level (a native crash, MuJoCo's own prints) go out at `DEBUG`. A working viewer is quiet in a default log, and a problem inside it shows up in the caller's log without extra setup. The reader also keeps the last 50 lines, which `launch` includes in its error when the viewer process fails to start.
 
@@ -117,8 +119,8 @@ Two processes are involved. The **caller's process** is the program that calls `
 
 `src/nao_viewer/scenes/` ships with the package:
 
-- `empty.xml` (`"empty"`): floor and light, the mirror default, described in [model.md](model.md);
-- `table.xml` (`"table"`): a table with a few objects in front of the robot, the sim default, so the cameras have something to see.
+- `empty.xml` (`"empty"`): floor and light, the default in both modes, described in [model.md](model.md);
+- `table.xml` (`"table"`): a low table with a few objects in front of the robot, placed so both head cameras see them; for sim-mode callers who want something to look at.
 
 ## Open questions
 

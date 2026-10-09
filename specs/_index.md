@@ -14,7 +14,7 @@ nao-viewer is the MuJoCo window for NAO, one of the three packages of the NAO to
 | [meshes.md](meshes.md) | `fetch-meshes` license-gated install and conversion, and loading Aldebaran's meshes in place of the placeholder visuals | Draft |
 | [source.md](source.md) | Pose sources: `connect()` with retries, `NaoqiSource` polling NAOqi at 50 Hz with reconnect and target identification | Implemented |
 | [viewer.md](viewer.md) | The render loop on `mujoco.viewer.launch_passive`: pose → `mj_kinematics` at 60 Hz, status overlay, ghost, attribution | Implemented |
-| [api.md](api.md) | Public API: `launch(url, mode="mirror"\|"sim")` starts the viewer in its own process (`mjpython` on macOS) and returns a `Viewer` handle (`camera_frame`, `status`, `wait`, `close`); loopback protocol; bundled scenes | Draft |
+| [api.md](api.md) | Public API: `launch(url, mode="mirror"\|"sim")` starts the viewer in its own process (`mjpython` on macOS) and returns a `Viewer` handle (`camera_frame`, `status`, `wait`, `close`); loopback protocol; bundled scenes | Implemented |
 | [check_model.md](check_model.md) | `check-model`: forward-kinematics cross-check against NAOqi, 2 mm / 1° | Draft |
 | [cli.md](cli.md) | Thin `nao-viewer` command: `view`, `check-model`, `fetch-meshes` | Draft |
 

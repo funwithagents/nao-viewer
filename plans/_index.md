@@ -11,6 +11,7 @@ Implementation plans for nao-viewer — each plan turns a settled part of a spec
 | [202610090930_nao-model.md](202610090930_nao-model.md) | Vendored URDF, committed `nao.xml` with placeholder visuals, `empty` scene, `model.py` (implements [model.md](../specs/model.md)) | Done |
 | [202610090954_pose-source.md](202610090954_pose-source.md) | `connect`, `NaoqiSource` with reconnection and target identification, and the in-process mock NAOqi (implements [source.md](../specs/source.md), [testing.md](../specs/testing.md)) | Done |
 | [202610091003_viewer-window.md](202610091003_viewer-window.md) | `ViewerState` (overlay, ghost, attribution, keys) and `run` on MuJoCo's passive viewer; window title via `load_world(name=...)` (implements [viewer.md](../specs/viewer.md)) | Done |
+| [202610091018_viewer-api.md](202610091018_viewer-api.md) | `launch` and the `Viewer` handle, the viewer process and its loopback protocol, the `table` scene, live window test (implements [api.md](../specs/api.md)) | Done |
 
 ## Status legend
 

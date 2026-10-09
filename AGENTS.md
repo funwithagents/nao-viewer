@@ -26,6 +26,9 @@ Where things live. This is a coarse, module-level map — for the full file inve
 |---|---|---|
 | [`src/nao_viewer/__init__.py`](src/nao_viewer/__init__.py) | Package glue (exempt from the spec rule) | — |
 | [`src/nao_viewer/source.py`](src/nao_viewer/source.py) | Pose sources: `connect` with retries, `NaoqiSource` polling NAOqi with reconnection and target identification | [source.md](specs/source.md) |
+| [`src/nao_viewer/client.py`](src/nao_viewer/client.py) | The caller's side: `launch` and the `Viewer` handle (standard library + numpy only) | [api.md](specs/api.md) |
+| [`src/nao_viewer/protocol.py`](src/nao_viewer/protocol.py) | Message framing between a caller and its viewer process | [api.md](specs/api.md) |
+| [`src/nao_viewer/viewer_process.py`](src/nao_viewer/viewer_process.py) | The viewer process: world, pose source, request server, window, camera renders | [api.md](specs/api.md) |
 | [`src/nao_viewer/viewer.py`](src/nao_viewer/viewer.py) | The window: `ViewerState` (posing, status overlay, ghost, attribution) and `run` on MuJoCo's passive viewer | [viewer.md](specs/viewer.md) |
 | [`src/nao_viewer/model.py`](src/nao_viewer/model.py) | The NAO model (`models/nao.xml`) and scenes (`scenes/`): `load_world`, `NaoPose`, `PoseWriter` | [model.md](specs/model.md) |
 
