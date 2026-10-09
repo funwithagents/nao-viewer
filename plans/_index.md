@@ -18,7 +18,7 @@ Implementation plans for nao-viewer — each plan turns a settled part of a spec
 | [202610091243_live-tier-window-switch.md](202610091243_live-tier-window-switch.md) | `NAO_VIEWER_E2E_WINDOW` chooses headless (default) or windowed viewers for a live run, replacing the per-test parametrization (implements [testing.md](../specs/testing.md)) | Done |
 | [202610091309_ci.md](202610091309_ci.md) | CI on GitHub's Linux runners: `check`, `fast-tier` (real headless viewer, GL required) and `e2e-nao-sim` (nao-sim's NAOqi 2.1 at a pinned commit, vendor files cached) (implements [ci.md](../specs/ci.md), [testing.md](../specs/testing.md)) | Done |
 | [202610091335_ci-image-cache.md](202610091335_ci-image-cache.md) | The live job caches nao-sim's built images (`docker save`/`load`, keyed on the nao-sim pin) instead of Aldebaran's vendor files (implements [ci.md](../specs/ci.md)) | Done |
-| [202610091402_ci-macos-and-window.md](202610091402_ci-macos-and-window.md) | The fast tier on Linux and macOS, the live tier headless and windowed (under Xvfb) (implements [ci.md](../specs/ci.md)) | In progress |
+| [202610091402_ci-macos-and-window.md](202610091402_ci-macos-and-window.md) | The live tier headless and windowed (under Xvfb); a macOS fast tier tried and dropped, its runners having no OpenGL (implements [ci.md](../specs/ci.md)) | In progress |
 
 ## Status legend
 

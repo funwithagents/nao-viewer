@@ -11,17 +11,17 @@ tests:
 
 ## Purpose
 
-The verification gate of [AGENTS.md](../AGENTS.md) (lint, type check, tests) runs on GitHub's hosted runners for every pull request and every push to `main`, so each change gets a machine's verdict, not only a local command. CI runs both test tiers ([testing.md](testing.md)) and as much of each as a hosted runner can: the fast tier on Linux and macOS, with a real headless viewer on the mock NAOqi, and the live tier against a real NAOqi that nao-sim builds on the runner, headless and with windows. Like [testing.md](testing.md), this is a cross-cutting practice, not a runtime concept: nothing here ships in the library, and the one file that implements it is the workflow.
+The verification gate of [AGENTS.md](../AGENTS.md) (lint, type check, tests) runs on GitHub's hosted runners for every pull request and every push to `main`, so each change gets a machine's verdict, not only a local command. CI runs both test tiers ([testing.md](testing.md)) and as much of each as a hosted runner can: the fast tier, with a real headless viewer on the mock NAOqi, and the live tier against a real NAOqi that nao-sim builds on the runner, headless and with windows. Like [testing.md](testing.md), this is a cross-cutting practice, not a runtime concept: nothing here ships in the library, and the one file that implements it is the workflow.
 
 ## Decided
 
 ### The runner
 
-- **GitHub-hosted runners, the free tier.** The repository is public, so minutes cost nothing, and CI covers every path a runner can run reliably. Runners are pinned by name (`ubuntu-24.04`, `macos-15`) rather than `-latest`, so an image only changes when the pin is bumped on purpose. No self-hosted runner.
-- **Linux runs everything.** CI is the project's Linux target: the Linux x86_64 `qi` wheel, the EGL default of a headless viewer ([api.md](api.md), "Headless"), a windowed viewer under a virtual display, and Docker running nao-sim's amd64 NAOqi with no emulation.
-- **macOS runs the fast tier, without OpenGL.** `macos-15` (Apple Silicon) is where nao-viewer is developed: the macOS arm64 `qi` wheel (tagged macOS 15), the mock NAOqi, the client against the fake viewer process. **macOS runners are VMs with no GPU, so they have no OpenGL**: MuJoCo's CGL backend asks for an accelerated pixel format (`CGLPFAAccelerated`) and fails with `invalid pixel format` (measured on the first macOS run), and GLFW, MuJoCo's other macOS backend, asks for one too. The two GL tests (the in-process renderer and the real headless viewer) therefore skip on macOS; they run on Linux. macOS runners also have no Docker, so nao-sim's NAOqi, and with it the live tier, can't run there. A windowed viewer on macOS isn't run either: it would need `mjpython` and an unlocked GUI session on the runner, which is untested (open question 2).
+- **GitHub-hosted runners, the free tier.** The repository is public, so minutes cost nothing, and CI covers every path a runner can run reliably. Every job runs on `ubuntu-24.04`, pinned by name rather than `ubuntu-latest`, so an image only changes when the pin is bumped on purpose. No self-hosted runner.
+- **Linux only.** CI is the project's Linux target: the Linux x86_64 `qi` wheel, the EGL default of a headless viewer ([api.md](api.md), "Headless"), a windowed viewer under a virtual display, and Docker running nao-sim's amd64 NAOqi with no emulation.
+- **No macOS job.** GitHub's macOS runners (Apple Silicon VMs) can't test the viewer. They have no GPU and so no OpenGL: MuJoCo's CGL backend asks for an accelerated pixel format (`CGLPFAAccelerated`) and fails with `invalid pixel format`, measured on a `macos-15` fast-tier run, and GLFW, MuJoCo's other macOS backend, asks for one too. They have no Docker, so no nao-sim. A macOS fast tier would skip every rendering test and cover only the platform-neutral rest, which Linux already runs. macOS, where nao-viewer is developed, is tested locally (`mjpython`, CGL, the window).
 - **One Python**, 3.12: the floor of `requires-python`, and the version `.python-version` names. uv installs it.
-- **System packages, Linux only.** Mesa's EGL (`libegl1 libopengl0 libgl1-mesa-dri`) in the two test jobs, for offscreen rendering with no display and no GPU. The windowed live entry adds a virtual X display and Mesa's GLX (`xvfb xauth libgl1 libglx-mesa0`). Nothing else is installed with apt, and nothing at all on macOS.
+- **System packages.** Mesa's EGL (`libegl1 libopengl0 libgl1-mesa-dri`) in the two test jobs, for offscreen rendering with no display and no GPU. The windowed live entry adds a virtual X display and Mesa's GLX (`xvfb xauth libgl1 libglx-mesa0`). Nothing else is installed with apt.
 
 ### The workflow
 
@@ -30,10 +30,10 @@ One file, `.github/workflows/ci.yml`. It triggers on `pull_request`, on `push` t
 | Job | What |
 |---|---|
 | `check` | `uv sync --locked`, then `ruff check .`, `ruff format --check .`, `pyright`: the static gate |
-| `fast-tier` | Matrix `ubuntu-24.04`, `macos-15`: `pytest -rs`, the fast tier (`tests/` only, from `testpaths`); on Linux with Mesa's EGL, `MUJOCO_GL=egl` and `NAO_VIEWER_REQUIRE_OFFSCREEN_GL=1` |
+| `fast-tier` | Mesa's EGL; `pytest -rs`, the fast tier (`tests/` only, from `testpaths`), with `MUJOCO_GL=egl` and `NAO_VIEWER_REQUIRE_OFFSCREEN_GL=1` |
 | `e2e-nao-sim` | Matrix `headless`, `window`, on `ubuntu-24.04`: nao-sim at a pinned commit builds and starts NAOqi 2.1; `pytest tests-e2e -rs` with `NAOQI_URL=tcp://127.0.0.1:9559`, the `window` entry with `NAO_VIEWER_E2E_WINDOW=1` under `xvfb-run` |
 
-The three jobs and their matrix entries (five runners in all) run side by side, and none waits on another: a run takes as long as its slowest entry (a live one). Matrices don't fail fast, so one entry failing leaves the others running. A public repository runs 20 jobs at once, 5 of them on macOS.
+The three jobs and the live job's two entries (four runners in all) run side by side, and none waits on another: a run takes as long as its slowest entry (a live one). The live matrix doesn't fail fast, so one entry failing leaves the other running.
 
 - **`--locked`.** The sync fails when `uv.lock` doesn't match `pyproject.toml`, so a dependency edit lands with its relock or not at all.
 - **The format check covers the whole repo** (`.`). `specs/` and `plans/` are excluded in `pyproject.toml`, because ruff also formats Python blocks inside Markdown and the specs' blocks are hand-aligned. A local `ruff format .` is therefore the same command, and touches Python files only.
@@ -42,10 +42,10 @@ The three jobs and their matrix entries (five runners in all) run side by side, 
 
 ### The fast tier in CI
 
-- **On Linux, `MUJOCO_GL=egl`** for the whole run. MuJoCo's default on Linux is GLFW, which needs a display, so without this the in-process renderer test would skip. The headless viewer tests get EGL from `launch()` either way. **On macOS**, MuJoCo's default (CGL) renders offscreen as is, so the variable is left empty.
-- **On Linux, `NAO_VIEWER_REQUIRE_OFFSCREEN_GL=1`** turns the "no offscreen OpenGL" skips into failures ([testing.md](testing.md), "Testing the viewer process"). A runner that loses its GL packages fails the job instead of passing it on skips.
-- **Expected skips: none on Linux; two on macOS**, the in-process renderer test and the real headless viewer test, both for want of OpenGL on the runner. Any other skip is a regression.
-- **Timing tests ask for rates any runner reaches.** The macOS runner polled the mock NAOqi at 27 Hz at most, so a test that the source follows `rate_hz` uses 5 and 15 Hz, not 50: it checks the behavior, not the machine's speed.
+- `MUJOCO_GL=egl` for the whole run. MuJoCo's default on Linux is GLFW, which needs a display, so without this the in-process renderer test would skip. The headless viewer tests get EGL from `launch()` either way.
+- `NAO_VIEWER_REQUIRE_OFFSCREEN_GL=1` turns the "no offscreen OpenGL" skips into failures ([testing.md](testing.md), "Testing the viewer process"). A runner that loses its GL packages fails the job instead of passing it on skips.
+- **Expected skips: none.**
+- **Timing tests ask for rates any runner reaches.** A macOS runner polled the mock NAOqi at 27 Hz at most, so a test that the source follows `rate_hz` uses 5 and 15 Hz, not 50: it checks the behavior, not the machine's speed.
 
 ### The live job: a real NAOqi from nao-sim
 
@@ -65,9 +65,8 @@ The three jobs and their matrix entries (five runners in all) run side by side, 
 ### Secrets and protection
 
 - **No secret is required**, and none is used. nao-sim is public, so pull requests from forks run the same three jobs.
-- **The status checks to require on `main`** are every entry: `lint, format, types`, `fast tier (ubuntu-24.04)`, `fast tier (macos-15)`, `live tier, nao-sim NAOqi 2.1, headless` and `live tier, nao-sim NAOqi 2.1, window`. Requiring them is a repository setting on GitHub, outside the repo.
+- **The status checks to require on `main`** are every entry: `lint, format, types`, `fast tier`, `live tier, nao-sim NAOqi 2.1, headless` and `live tier, nao-sim NAOqi 2.1, window`. Requiring them is a repository setting on GitHub, outside the repo.
 
 ## Open questions
 
 1. **NAOqi 2.8 (NAO V6).** A matrix entry beside 2.1 would catch a model or API difference between V5 and V6, at about twice the download (1.33 GB suite plus a 732 MB robot image) and a second cached image (about 2.4 GB on disk for 2.8, against the 10 GB per repository). Deferred until 2.8 matters to nao-viewer's users.
-2. **A windowed viewer on macOS.** macOS runners have a GUI session, so an `mjpython` window can probably open, but a locked screen makes MuJoCo's viewer hang or crash (reachy-mini-bridge saw both locally). It would run against the mock NAOqi, since there's no nao-sim on macOS, so it needs a windowed test outside the live tier. To try as a non-blocking job (`continue-on-error`) before requiring it.

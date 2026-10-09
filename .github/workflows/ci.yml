@@ -2,9 +2,10 @@
 #
 # Three jobs side by side on GitHub's hosted runners, on every pull request and push to main:
 # `check` (lint, format, types), `fast-tier` (tests/, with a real headless viewer on the mock
-# NAOqi; on Linux and macOS) and `e2e-nao-sim` (tests-e2e/ against a real NAOqi 2.1 that
-# nao-sim builds on a Linux runner; headless and windowed). Matrix entries run side by side
-# too, and none waits on another. No secret is needed.
+# NAOqi) and `e2e-nao-sim` (tests-e2e/ against a real NAOqi 2.1 that nao-sim builds on the
+# runner; headless and windowed). Matrix entries run side by side too, and none waits on
+# another. All on Linux: macOS runners have no OpenGL and no Docker (specs/ci.md). No secret
+# is needed.
 
 name: CI
 
@@ -48,20 +49,12 @@ jobs:
         run: uv run pyright
 
   fast-tier:
-    name: fast tier (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: fast tier
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
-    strategy:
-      # Linux, CI's own target, and macOS (Apple Silicon), where nao-viewer is developed: the
-      # macOS qi wheel, CGL offscreen rendering under plain python. One OS failing leaves the
-      # other running.
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-15]
     steps:
       - uses: actions/checkout@v7
       - name: System packages (offscreen OpenGL)
-        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends -o Acquire::http::Timeout=30 -o Acquire::Retries=3 $APT_GL
@@ -73,13 +66,11 @@ jobs:
         run: uv sync --locked
       - name: Fast tier
         env:
-          # On Linux the in-process renderer test renders through EGL too (MuJoCo's Linux
-          # default is GLFW, which needs a display), and a runner without offscreen GL fails
-          # the job instead of skipping the headless viewer tests. macOS runners are VMs with
-          # no GPU: MuJoCo's CGL asks for an accelerated pixel format and gets none, so the two
-          # GL tests skip there, as expected (specs/ci.md).
-          MUJOCO_GL: ${{ runner.os == 'Linux' && 'egl' || '' }}
-          NAO_VIEWER_REQUIRE_OFFSCREEN_GL: ${{ runner.os == 'Linux' && '1' || '' }}
+          # The in-process renderer test renders through EGL too (MuJoCo's Linux default is
+          # GLFW, which needs a display), and a runner without offscreen GL fails the job
+          # instead of skipping the headless viewer tests (specs/ci.md).
+          MUJOCO_GL: egl
+          NAO_VIEWER_REQUIRE_OFFSCREEN_GL: "1"
         run: uv run pytest -rs
 
   e2e-nao-sim:
@@ -89,8 +80,7 @@ jobs:
     strategy:
       # Each entry on its own runner with its own NAOqi. headless: the tier's default, the
       # mirror test skips. window: NAO_VIEWER_E2E_WINDOW=1 under a virtual X display, so the
-      # windowed loop and the mirror test run too. macOS runners have no Docker, so no
-      # nao-sim: the live tier is Linux only (specs/ci.md).
+      # windowed loop and the mirror test run too.
       fail-fast: false
       matrix:
         viewer: [headless, window]
