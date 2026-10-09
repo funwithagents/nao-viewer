@@ -57,12 +57,17 @@ def test_samples_carry_the_measured_pose(mock_naoqi: tuple[str, MockNaoqi]):
         assert latest(src).seq > sample.seq
 
 
-def test_rate_follows_rate_hz(mock_naoqi: tuple[str, MockNaoqi]):
+# Rates any machine reaches, a slow CI runner included (one polled 27 Hz at most): the test
+# is that polling follows rate_hz, not how fast a machine can poll.
+@pytest.mark.parametrize(("rate_hz", "low", "high"), [(5, 4, 6), (15, 13, 16)])
+def test_rate_follows_rate_hz(
+    mock_naoqi: tuple[str, MockNaoqi], rate_hz: float, low: float, high: float
+):
     url, _ = mock_naoqi
-    with closing(NaoqiSource(url, rate_hz=50)) as src:
+    with closing(NaoqiSource(url, rate_hz=rate_hz)) as src:
         first_sample(src)
         time.sleep(1.2)
-        assert 40 <= src.rate() <= 55
+        assert low <= src.rate() <= high
 
 
 def test_commanded_angles_when_requested(mock_naoqi: tuple[str, MockNaoqi]):

@@ -74,11 +74,12 @@ jobs:
       - name: Fast tier
         env:
           # On Linux the in-process renderer test renders through EGL too (MuJoCo's Linux
-          # default is GLFW, which needs a display); macOS keeps MuJoCo's default, CGL. A
-          # runner without offscreen GL fails the job instead of skipping the headless viewer
-          # tests (specs/ci.md).
+          # default is GLFW, which needs a display), and a runner without offscreen GL fails
+          # the job instead of skipping the headless viewer tests. macOS runners are VMs with
+          # no GPU: MuJoCo's CGL asks for an accelerated pixel format and gets none, so the two
+          # GL tests skip there, as expected (specs/ci.md).
           MUJOCO_GL: ${{ runner.os == 'Linux' && 'egl' || '' }}
-          NAO_VIEWER_REQUIRE_OFFSCREEN_GL: "1"
+          NAO_VIEWER_REQUIRE_OFFSCREEN_GL: ${{ runner.os == 'Linux' && '1' || '' }}
         run: uv run pytest -rs
 
   e2e-nao-sim:
