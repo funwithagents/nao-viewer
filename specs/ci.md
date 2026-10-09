@@ -7,7 +7,7 @@ tests:
 
 # Continuous integration
 
-**Status:** Implemented
+**Status:** Updated
 
 ## Purpose
 
@@ -48,9 +48,14 @@ The three jobs run side by side, each on its own runner, and none waits on anoth
 ### The live job: a real NAOqi from nao-sim
 
 - **NAOqi 2.1.4.13 (NAO V5)**, the version `check-model` was validated against. 2.8 isn't run in CI (open question 1).
-- **nao-sim's own tooling, at a pinned commit.** The job checks out the public [funwithagents/nao-sim](https://github.com/funwithagents/nao-sim) at the commit `NAO_SIM_REF` names in the workflow, then runs `nao-sim fetch-and-build-images 2.1` in nao-sim's own uv project. That command fetches the vendor files, builds the NAOqi and `tts` images, and checks that they boot. The job then starts them with `docker compose --profile 2.1 up -d --wait --no-build`. The pin moves only when it is bumped on purpose, so a nao-sim change can't break nao-viewer's CI without a nao-viewer commit.
+- **nao-sim's own tooling, at a pinned commit.** The job checks out the public [funwithagents/nao-sim](https://github.com/funwithagents/nao-sim) at the commit `NAO_SIM_REF` names in the workflow, then gets nao-sim's NAOqi 2.1 and `tts` images: from the cache below, or else by running `nao-sim fetch-and-build-images 2.1` in nao-sim's own uv project. That command fetches the vendor files, builds the two images, and checks that they boot. The job then starts them with `docker compose --profile 2.1 up -d --wait --no-build`. The pin moves only when it is bumped on purpose, so a nao-sim change can't break nao-viewer's CI without a nao-viewer commit.
 - **No import, one-way dependency.** nao-viewer's tests reach nao-sim's NAOqi by URL only. nao-sim's package lives in its own environment and is never installed into nao-viewer's ([testing.md](testing.md)).
-- **Aldebaran's files are cached, the image is never pushed.** The vendor files are the 2.1 Choregraphe suite and the `animations` package, which is extracted from the robot image. They are public on Aldebaran's GitHub. They are kept in this repository's Actions cache between runs, under a key that hashes nao-sim's pins (`src/nao_sim/suite.py`), so new pins fetch new files. The cache is restored before the build and saved right after it, so a failing live tier doesn't fetch again on the next run. The built image stays on the runner: it contains Aldebaran's software, and no registry ever receives it.
+- **The images are cached, not Aldebaran's files.** The vendor files (the 2.1 Choregraphe suite, and the `animations` package extracted from the robot image) are fetched only to build nao-sim's images, as on a user's machine. The cache holds the result, not the inputs: the two images, written by `docker save` as one file of about 1.6 GB, in this repository's Actions cache, keyed on `NAO_SIM_REF`.
+  - **Hit**: `docker load`, with no fetch, build or nao-sim boot check. `compose up --wait` still waits for NAOqi's healthcheck.
+  - **Miss** (a new pin): `fetch-and-build-images`, then `docker save`, then the cache is saved right after the build rather than at the end of the job, so a failing live tier doesn't build again on the next run.
+  - **What a pin freezes.** A cached image keeps the base images and the `tts` image's unpinned `pip install` as they were when it was built, until the pin moves. Runs are reproducible, and an upstream change reaches CI only with a bump.
+  - **Never pushed.** The images contain Aldebaran's software. They sit in a cache only this repository's workflows restore, and no registry ever receives them.
+  - **Measured** on the first run, before this cache: a cold build takes about 2 minutes (downloads about 16 s, build about 80 s, boot check 28 s), of a 3-minute live job.
 - **Headless.** The live tier opens its viewers headless, its default ([testing.md](testing.md), "Live tier: headless or windowed"). Viewer warnings and errors print live (`--log-cli-level=WARNING`). When the job fails, a last step prints the NAOqi containers' logs.
 - **Expected skips: one**, the mirror test, which needs a window. Any other skip is a regression. Since `NAOQI_URL` is set, a NAOqi that doesn't answer fails the tests; nothing skips for want of an endpoint.
 
@@ -61,5 +66,4 @@ The three jobs run side by side, each on its own runner, and none waits on anoth
 
 ## Open questions
 
-1. **NAOqi 2.8 (NAO V6).** A matrix entry beside 2.1 would catch a model or API difference between V5 and V6, at about twice the download (1.33 GB suite plus a 732 MB robot image) and a larger cache. Deferred until 2.8 matters to nao-viewer's users.
-2. **Docker layer caching.** The image build itself isn't cached (only the vendor files are). If the build turns out to dominate the live job, buildx's GitHub cache could hold the layers. They'd contain Aldebaran's software, in a cache only this repository's workflows read, still never a registry. To decide with measured times.
+1. **NAOqi 2.8 (NAO V6).** A matrix entry beside 2.1 would catch a model or API difference between V5 and V6, at about twice the download (1.33 GB suite plus a 732 MB robot image) and a second cached image (about 2.4 GB on disk for 2.8, against the 10 GB per repository). Deferred until 2.8 matters to nao-viewer's users.

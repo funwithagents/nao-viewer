@@ -91,26 +91,33 @@ jobs:
           cache-dependency-glob: |
             uv.lock
             nao-sim/uv.lock
-      # Aldebaran's public files (the 2.1 Choregraphe suite and the animations package taken
-      # from the robot image), fetched from Aldebaran's GitHub and kept in this repository's
-      # Actions cache between runs. The key is nao-sim's pins: new pins, new files. The image
-      # built from them stays on the runner: it is never pushed (specs/ci.md).
-      # Restored here and saved right after the build, not at the end of the job, so a
-      # failing live tier doesn't fetch them again on the next run.
-      - name: Aldebaran vendor files (restore)
-        id: vendor
+      # nao-sim's images (NAOqi 2.1 and tts), saved with `docker save` in this repository's
+      # Actions cache, keyed on the nao-sim pin they are built from. On a miss, nao-sim fetches
+      # Aldebaran's files only to build them, as it does on a user's machine; the files are
+      # never cached. The images contain Aldebaran's software: a cache only this repository's
+      # workflows read, never a registry (specs/ci.md).
+      - name: nao-sim images (restore)
+        id: images
         uses: actions/cache/restore@v6
         with:
-          path: nao-sim/docker/vendor
-          key: nao-sim-vendor-2.1-${{ hashFiles('nao-sim/src/nao_sim/suite.py') }}
-      - name: Build and verify the NAOqi 2.1 image (nao-sim fetch-and-build-images)
-        run: uv run --project nao-sim --locked nao-sim fetch-and-build-images 2.1
-      - name: Aldebaran vendor files (save)
-        if: steps.vendor.outputs.cache-hit != 'true'
+          path: ${{ runner.temp }}/nao-sim-images.tar
+          key: nao-sim-images-2.1-${{ env.NAO_SIM_REF }}
+      - name: Load the cached images
+        if: steps.images.outputs.cache-hit == 'true'
+        run: docker load -i "$RUNNER_TEMP/nao-sim-images.tar"
+      - name: Build and verify the images (nao-sim fetch-and-build-images)
+        if: steps.images.outputs.cache-hit != 'true'
+        run: |
+          uv run --project nao-sim --locked nao-sim fetch-and-build-images 2.1
+          docker save -o "$RUNNER_TEMP/nao-sim-images.tar" nao-sim/naoqi:2.1.4.13 nao-sim/tts:dev
+      # Saved right after the build, not at the end of the job, so a failing live tier
+      # doesn't build again on the next run.
+      - name: nao-sim images (save)
+        if: steps.images.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
-          path: nao-sim/docker/vendor
-          key: ${{ steps.vendor.outputs.cache-primary-key }}
+          path: ${{ runner.temp }}/nao-sim-images.tar
+          key: ${{ steps.images.outputs.cache-primary-key }}
       - name: Start NAOqi 2.1
         run: docker compose -f nao-sim/docker/compose.yaml --profile 2.1 up -d --wait --no-build
       - name: Sync (against the lock)
