@@ -114,6 +114,7 @@ class MockNaoqi:
         self._commanded: dict[str, float] = dict.fromkeys(self._body_names, 0.0)
         self._torso = np.array(STANDING_TORSO, dtype=float).reshape(4, 4)
         self._effector_errors: dict[str, np.ndarray] = {}
+        self._clips: dict[str, tuple[float, float]] = {}
         self._memory: dict[str, Any] = {}
         self._failure: str | None = None
         self._session: Any = None
@@ -178,6 +179,11 @@ class MockNaoqi:
                 transform, dtype=float
             ).reshape(4, 4)
 
+    def clip_joint(self, name: str, low: float, high: float) -> None:
+        """Make angleInterpolation stop `name` within [low, high], as NAOqi's own clipping does."""
+        with self._lock:
+            self._clips[name] = (low, high)
+
     def fail_calls(self, message: str | None) -> None:
         """Make every ALMotion call raise `message` (None: back to normal)."""
         with self._lock:
@@ -241,6 +247,8 @@ class MockNaoqi:
             names, angles = [names], [angles]
         for name, angle in zip(names, angles, strict=True):
             target = angle[-1] if isinstance(angle, list) else angle
+            if name in self._clips:
+                target = min(max(target, self._clips[name][0]), self._clips[name][1])
             self._measured[name] = float(target)
             self._commanded[name] = float(target)
 

@@ -33,6 +33,8 @@ Where things live. This is a coarse, module-level map — for the full file inve
 | [`src/nao_viewer/viewer_process.py`](src/nao_viewer/viewer_process.py) | The viewer process: world, pose source, request server, window, camera renders | [api.md](specs/api.md) |
 | [`src/nao_viewer/viewer.py`](src/nao_viewer/viewer.py) | The window: `ViewerState` (posing, status overlay, ghost, attribution) and `run` on MuJoCo's passive viewer | [viewer.md](specs/viewer.md) |
 | [`src/nao_viewer/model.py`](src/nao_viewer/model.py) | The NAO model (`models/nao.xml`) and scenes (`scenes/`): `load_world`, `NaoPose`, `PoseWriter` | [model.md](specs/model.md) |
+| [`src/nao_viewer/check_model.py`](src/nao_viewer/check_model.py) | `check-model`: moves a NAOqi through random configurations and compares its effectors with the model's sites | [check_model.md](specs/check_model.md) |
+| [`src/nao_viewer/cli.py`](src/nao_viewer/cli.py) | The `nao-viewer` command: `view` and `check-model`, argument parsing only | [cli.md](specs/cli.md) |
 
 **Keep this map current:** when you add, rename, or remove a top-level `src/nao_viewer/` module or a root directory, update the map in the same change — same discipline as keeping spec/plan statuses honest (below). A test (`tests/test_project_map.py`) enforces that every `src/nao_viewer/*.py` module appears here and vice-versa — and that the spec frontmatter (see below) stays honest too.
 

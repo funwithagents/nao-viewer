@@ -33,6 +33,10 @@ _SITE_FRAMES = {
     },
 }
 _CAMERA_FRAMES = {"CameraTop": "CameraTop_frame", "CameraBottom": "CameraBottom_frame"}
+# Where nao.xml deliberately departs from the URDF (specs/model.md, Effector sites): site ->
+# offset from the URDF frame, in that frame. The URDF's r_gripper z (-0.01213) breaks the arms'
+# symmetry; NAOqi's RArm sits at l_gripper's -0.01231, as check-model measured.
+_URDF_CORRECTIONS = {"RArm": np.array([0.0, 0.0, -0.00018])}
 
 
 @pytest.fixture(scope="module")
@@ -127,8 +131,11 @@ def test_forward_kinematics_match_the_urdf(
             pos_o, _ = _relative_to(
                 ours, torso_ours, ours.site(site).xpos, ours.site(site).xmat
             )
+            frame_pos = theirs.xpos[frame_id] + theirs.xmat[frame_id].reshape(
+                3, 3
+            ) @ _URDF_CORRECTIONS.get(site, np.zeros(3))
             pos_t, _ = _relative_to(
-                theirs, torso_theirs, theirs.xpos[frame_id], theirs.xmat[frame_id]
+                theirs, torso_theirs, frame_pos, theirs.xmat[frame_id]
             )
             np.testing.assert_allclose(pos_o, pos_t, atol=1e-5, err_msg=site)
 

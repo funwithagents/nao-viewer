@@ -8,7 +8,7 @@ tests:
 
 # Model check
 
-**Status:** Draft
+**Status:** Implemented
 
 ## Purpose
 
@@ -26,6 +26,40 @@ Proving the model's kinematics match NAOqi's. `nao-viewer check-model` puts a NA
   5. Compare each effector with the matching model site, expressed in the `torso` frame: position error (mm) and rotation error (angle of the relative rotation, degrees).
 - **Result**: a table of the worst position and rotation error per effector, with the sample where it occurred. Exit code 0 when every sample is under both tolerances, 1 otherwise.
 - **Afterwards**: stiffness and posture are left as they are; the target is a simulated robot.
+
+### Details
+
+- **Joints**: the names from `getBodyNames("Body")` that the model knows (`model.JOINT_NAMES`), in NAOqi's order, with ranges from the model. `RHipYawPitch` is sent like any other joint. NAOqi drives it from `LHipYawPitch`, and the read-back angles say what it actually did.
+- **Model side**: the model is loaded with the `placeholder` visuals (only the kinematics matter). It is posed with the torso at the world origin, so a site's world frame is its frame in `torso`.
+- **Seed**: with `seed=None`, a random 32-bit seed is drawn. It is logged at the start of the run and stored in the report, so the same `seed` and `samples` replay the same configurations. Samples are numbered from 1.
+- **Errors**: a refused `real` target raises `TargetRefused` (a `RuntimeError`) before anything moves. A NAOqi that can't be reached raises `ConnectionError` from [source.md](source.md)'s `connect`. `samples < 1` or a tolerance `<= 0` raises `ValueError`.
+
+```python
+EFFECTORS = ("Head", "LArm", "RArm", "LLeg", "RLeg")
+
+@dataclass(frozen=True)
+class EffectorResult:
+    effector: str
+    position_mm: float          # worst position error
+    position_sample: int        # the sample it occurred at
+    rotation_deg: float         # worst rotation error
+    rotation_sample: int
+
+@dataclass(frozen=True)
+class CheckReport:
+    url: str
+    target: Target              # source.md's TargetInfo.target
+    naoqi_version: str | None
+    seed: int
+    samples: int
+    tolerance_mm: float
+    tolerance_deg: float
+    effectors: tuple[EffectorResult, ...]   # in EFFECTORS order
+
+    @property
+    def passed(self) -> bool: ...           # every effector within both tolerances
+    def format(self) -> str: ...            # the table, the seed, and PASS or FAIL naming the effectors over tolerance
+```
 
 ## Open questions
 

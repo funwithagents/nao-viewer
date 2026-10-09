@@ -252,7 +252,7 @@
                 <inertial pos="0.03434 0.00088 0.00308" mass="0.18533" fullinertia="6.86477e-05 0.000135756 0.000133228 1.13165e-05 -2.87254e-06 3.68003e-06"/>
                 <geom class="nao_visual" type="ellipsoid" pos="0.036 0 -0.006" size="0.03 0.021 0.022" material="nao_grey"/>
                 <geom class="nao_collision" type="box" pos="0.04 0 -0.005" size="0.035 0.022 0.022"/>
-                <site name="RArm" pos="0.05775 0 -0.01213" class="nao_effector"/>
+                <site name="RArm" pos="0.05775 0 -0.01231" class="nao_effector"/>
                 <body name="r_gripper" pos="0.05775 0 -0.01213">
                   <joint name="RHand" class="nao_joint" axis="1 0 0" range="0 1"/>
                   <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>

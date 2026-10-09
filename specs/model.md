@@ -39,7 +39,7 @@ The NAO as a MuJoCo model, and the one place that turns a NAOqi pose into MuJoCo
 - **Actuators**: one `position` actuator per joint, named after the joint, all in a default class `nao_joint` that holds `kp`, `forcerange` and `damping` as named parameters. The values are placeholders until system identification, and they are unused by the viewer.
 - **Sensors**: `jointpos` per joint; `gyro` and `accelerometer` at the `imu` site in the torso; 4 `touch` sensors per foot on sites at the URDF FSR frames (`LFsrFL LFsrFR LFsrRL LFsrRR`, same for `R`). `touch` rather than `force`: a MuJoCo `force` sensor measures the whole body's interaction with its parent, so four on one foot would all read the same.
 - **Cameras**: `CameraTop` and `CameraBottom` at the URDF camera frames, oriented so that MuJoCo's view (−Z forward, +Y up) matches the NAO image (not mirrored, horizon level when the head is level). `fovy` uses the V5 vertical field of view, 47.64°. A head camera's render must not show the robot's own head shell, with either set of visuals.
-- **Effector sites**: `Head`, `LArm`, `RArm`, `LLeg`, `RLeg`, at the positions of NAOqi's end effectors for those chains (`Head` at the `Head` link frame, the arms at the URDF `l_gripper`/`r_gripper` offset but fixed to the wrist body, the legs at `l_sole`/`r_sole`), so [check_model.md](check_model.md) can compare `ALMotion.getTransform(name, FRAME_TORSO, True)` with the site frame directly.
+- **Effector sites**: `Head`, `LArm`, `RArm`, `LLeg`, `RLeg`, at the positions of NAOqi's end effectors for those chains (`Head` at the `Head` link frame, the arms at the URDF `l_gripper`/`r_gripper` offset but fixed to the wrist body, the legs at `l_sole`/`r_sole`), so [check_model.md](check_model.md) can compare `ALMotion.getTransform(name, FRAME_TORSO, True)` with the site frame directly. One deviation from the URDF: its `r_gripper` z offset is −0.01213 m, but `l_gripper`'s is −0.01231 m and NAOqi's `RArm` matches the left value. `check-model` measured 0.18 mm against NAOqi 2.1, so `RArm` uses −0.01231 m.
 - **Masses and inertias** come from the URDF.
 
 ### Placeholder visuals
@@ -104,5 +104,5 @@ class PoseWriter:
 
 ## Open questions
 
-1. **Effector offsets**: the exact NAOqi end-effector points (hand and foot effectors are offset from the wrist and ankle frames). These come from the URDF frames where they match, otherwise from the NAOqi documentation. `check-model` validates them.
+1. **Effector offsets**: the exact NAOqi end-effector points (hand and foot effectors are offset from the wrist and ankle frames). These come from the URDF frames where they match, otherwise from the NAOqi documentation. `check-model` validates them. Against NAOqi 2.1 every effector now matches within 0.03 mm and 0.03°. NAOqi 2.8 is still to check.
 2. **NAO V6**: v1 is V5 geometry. Whether V6 (NAOqi 2.8) needs its own URDF and camera field of view is open.

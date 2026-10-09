@@ -13,6 +13,7 @@ Implementation plans for nao-viewer — each plan turns a settled part of a spec
 | [202610091003_viewer-window.md](202610091003_viewer-window.md) | `ViewerState` (overlay, ghost, attribution, keys) and `run` on MuJoCo's passive viewer; window title via `load_world(name=...)` (implements [viewer.md](../specs/viewer.md)) | Done |
 | [202610091018_viewer-api.md](202610091018_viewer-api.md) | `launch` and the `Viewer` handle, the viewer process and its loopback protocol, the `table` scene, live window test (implements [api.md](../specs/api.md)) | Done |
 | [202610091043_viewer-config.md](202610091043_viewer-config.md) | `NaoViewerConfig` and the `NaoViewer` object with `launch()` as a method, replacing the `launch()` function (implements [config.md](../specs/config.md), [api.md](../specs/api.md)) | Done |
+| [202610091130_check-model-and-cli.md](202610091130_check-model-and-cli.md) | `check_model.run` and its report, the `nao-viewer` command with `view` and `check-model` (implements [check_model.md](../specs/check_model.md), [cli.md](../specs/cli.md)) | Done |
 
 ## Status legend
 

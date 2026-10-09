@@ -112,7 +112,7 @@ try:
             }
         protocol.write_message(connection, reply, payload)
         answered += 1
-        if behavior == "close-after-2" and answered == 2:
+        if behavior.startswith("close-after-") and answered == int(behavior[12:]):
             break  # as if the window had been closed
 except EOFError:
     pass

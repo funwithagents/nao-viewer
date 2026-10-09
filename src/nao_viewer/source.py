@@ -90,7 +90,7 @@ def connect(url: str, *, cancel: threading.Event | None = None) -> Any:
     )
 
 
-def _identify(session: Any, url: str) -> TargetInfo:
+def identify(session: Any, url: str) -> TargetInfo:
     services = {service["name"] for service in session.services()}
     if "NaoSim" in services:
         version = session.service("ALMemory").getData("NaoSim/Version")
@@ -147,7 +147,7 @@ class NaoqiSource:
             session = None
             try:
                 session = connect(self._url, cancel=self._stop)
-                self._info = _identify(session, self._url)
+                self._info = identify(session, self._url)
                 _log.info(
                     "connected to %s (%s, NAOqi %s)",
                     self._url,
