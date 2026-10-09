@@ -47,7 +47,7 @@ The window: it poses the model from a [pose source](source.md) and draws it, wit
 ### Attribution overlay (bottom-right)
 
 - Text: `NAO meshes © Aldebaran, CC BY-NC-ND 4.0`.
-- On by default whenever the loaded model is the mesh variant; never shown with the primitive model. A key (`A`) toggles it.
+- On by default whenever the world is loaded with Aldebaran's meshes (`variant` `aldebaran`, [model.md](model.md)); never shown with the placeholder visuals. A key (`A`) toggles it.
 - nao-viewer records no video in v1, so there is no recording case to handle.
 
 ## Open questions

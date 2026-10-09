@@ -20,10 +20,9 @@ A small `nao-viewer` command for one-shot tools that don't fit in application co
 
 | Command | Does | Spec |
 |---|---|---|
-| `nao-viewer view URL [--mode mirror\|sim] [--scene S] [--ghost] [--variant V]` | Calls `nao_viewer.launch(...)` and waits until the window closes | [api.md](api.md) |
+| `nao-viewer view URL [--mode mirror\|sim] [--scene S] [--ghost] [--variant auto\|placeholder\|aldebaran]` | Calls `nao_viewer.launch(...)` and waits until the window closes | [api.md](api.md) |
 | `nao-viewer check-model URL [--samples N] [--seed N] [--tolerance-mm X] [--tolerance-deg X] [--allow-real]` | Forward-kinematics check | [check_model.md](check_model.md) |
-| `nao-viewer fetch-meshes [--installer PATH]` | License prompt and mesh install (interactive) | [meshes.md](meshes.md) |
-| `nao-viewer build-model --variant primitive\|meshes` | Regenerate a model | [model.md](model.md), [meshes.md](meshes.md) |
+| `nao-viewer fetch-meshes [--installer PATH]` | License prompt, mesh install and conversion (interactive) | [meshes.md](meshes.md) |
 
 - `URL` is `tcp://host:port` or a bare host (port 9559).
 - `-v`/`-q` set the log level; logs go to stderr.

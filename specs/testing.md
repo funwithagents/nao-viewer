@@ -46,7 +46,7 @@ nao-viewer owns a small mock rather than borrowing one from nao-bridge, which si
   - `ALMotion`: `getBodyNames`, `getAngles(names, useSensors)` (measured and commanded kept separately, so the ghost can be tested), `getTransform(name, frame, useSensors)`, `setStiffnesses`, `angleInterpolation`.
   - `ALMemory`: `getData`, `insertData`.
   - Optional `NaoSim` and `ALSystem` services, so all three target identifications can be tested.
-- **Effector transforms**: `getTransform` for effectors comes from the forward kinematics of the committed primitive model. A test can add a fixed error to one effector, so `check-model` is tested both passing and failing.
+- **Effector transforms**: `getTransform` for effectors comes from the forward kinematics of the committed model (`nao.xml`). A test can add a fixed error to one effector, so `check-model` is tested both passing and failing.
 - **Control from tests**: a pytest fixture yields `(url, mock)`. The test sets the pose (`mock.set_pose(...)`), can make calls fail or the session drop (`mock.disconnect()`) to exercise reconnection, and can read the calls received.
 
 ## Testing the viewer process

@@ -48,7 +48,7 @@ with nao_viewer.launch("tcp://127.0.0.1:9559", mode="sim") as viewer:
 
 ```python
 def launch(naoqi_url: str, *, mode: Literal["mirror", "sim"] = "mirror",
-           scene: str | Path | None = None, variant: str = "auto", ghost: bool = False,
+           scene: str | Path | None = None, variant: Literal["auto", "placeholder", "aldebaran"] = "auto", ghost: bool = False,
            rate_hz: float = 50, timeout: float = 30.0) -> Viewer
 
 class Viewer:
@@ -73,7 +73,7 @@ class ViewerStatus:
     target: str              # real / nao-sim / virtual (source.md)
     naoqi_version: str | None
     url: str
-    variant: str             # primitive / meshes
+    variant: str             # placeholder / aldebaran (model.md)
     rate: float              # pose updates per second
     pose_seq: int
     data_age: float | None   # s; None before the first sample
@@ -83,7 +83,7 @@ class ModeError(Exception): ...      # the request isn't available in this mode
 ```
 
 - `scene` is either a bundled scene name (`"empty"`, `"table"`) or a path to a user MJCF file ([model.md](model.md), Scenes). When it is omitted, the mode's default is used.
-- `launch` returns once the viewer is up, even if NAOqi is unreachable. The viewer keeps reconnecting ([source.md](source.md)), and `status().data_age` stays `None` until poses arrive. Errors only the viewer process can detect (an unknown scene, `variant="meshes"` without meshes) are reported by the viewer process and raised from `launch`.
+- `launch` returns once the viewer is up, even if NAOqi is unreachable. The viewer keeps reconnecting ([source.md](source.md)), and `status().data_age` stays `None` until poses arrive. Errors only the viewer process can detect (an unknown scene, `variant="aldebaran"` without installed meshes) are reported by the viewer process and raised from `launch`.
 - `camera_frame` is checked on the client side first, so mirror mode raises `ModeError` without a round trip; the viewer process refuses it too. In sim mode it blocks until the frame is rendered, which takes about one frame (17 ms) plus render time. Calls from several threads are serialized.
 - `nao_viewer/__init__.py` exports only the names above. Importing it loads neither `mujoco` nor `qi`: `client.py` uses the standard library and `numpy` only, so importing nao-viewer costs nao-sim nothing.
 
