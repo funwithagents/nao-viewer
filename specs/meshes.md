@@ -1,6 +1,7 @@
 ---
 code:
   - src/nao_viewer/meshes.py
+  - src/nao_viewer/model.py
   - src/nao_viewer/models/aldebaran_visuals.json
 tests:
   - tests/test_meshes.py

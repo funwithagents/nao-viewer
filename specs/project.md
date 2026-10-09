@@ -23,7 +23,7 @@ Structure and tooling for the nao-viewer project itself: Python version, depende
 - **Dependency/venv management:** `uv`. Dev tooling lives in the `dev` dependency group (`uv sync --dev`), not in runtime `dependencies`.
 - **Linting/formatting:** `ruff`.
 - **Testing:** `pytest`, in two physically-separated tiers — a fast, deterministic, no-network default run (`tests/`, the only tier `testpaths` collects) and an opt-in live tier (`tests-e2e/`) that calls real external services. Full strategy is specced in [testing.md](testing.md).
-- **Type checking:** `pyright` (`standard` mode), a dev dependency run via `uv run pyright`. Config lives in `[tool.pyright]` in `pyproject.toml`, targeting `src`, `tests`, and `tests-e2e`, pinned to the `.venv`.
+- **Type checking:** `pyright` (`standard` mode), a dev dependency run via `uv run pyright`. Config lives in `[tool.pyright]` in `pyproject.toml`, targeting `src`, `tests`, and `tests-e2e`, pinned to the `.venv`. `mujoco`'s compiled bindings carry no type information, so a partial stub in `typings/mujoco/` (pyright's default stub path) types its top-level names as `Any`; its submodules still resolve to the installed package.
 - **Repo shape:**
   - `src/nao_viewer/` — the package, one module per core concept.
   - `specs/` — pre-implementation design docs, one per concept (this folder).

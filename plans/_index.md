@@ -8,7 +8,7 @@ Implementation plans for nao-viewer — each plan turns a settled part of a spec
 
 | Plan | Description | Status |
 |---|---|---|
-| _(add plans here — see [_plan-template.md](_plan-template.md))_ | | |
+| [202610090930_nao-model.md](202610090930_nao-model.md) | Vendored URDF, committed `nao.xml` with placeholder visuals, `empty` scene, `model.py` (implements [model.md](../specs/model.md)) | Done |
 
 ## Status legend
 

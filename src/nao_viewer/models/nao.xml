@@ -1,0 +1,410 @@
+<!--
+  NAO V5 (H25) for nao-viewer.
+
+  Converted once from the ros-naoqi/nao_robot URDF (BSD-3-Clause; see
+  third_party/nao_description/SOURCE and THIRD_PARTY_NOTICES.md), then maintained by hand:
+  this file is the source of truth (specs/model.md). Kinematics, limits, masses and inertias
+  come from the URDF. Collision geoms, placeholder visuals, sites, cameras, actuators and
+  sensors are nao-viewer's own, under MIT.
+
+  Geom groups: 1 = visuals (class nao_visual, swapped for Aldebaran's meshes when installed),
+  3 = collision (hidden). Site group 4 = sensor and effector sites (hidden).
+-->
+<mujoco model="nao">
+  <compiler angle="radian" autolimits="true"/>
+
+  <default>
+    <default class="nao">
+      <default class="nao_joint">
+        <!-- Placeholder gains until system identification; unused by the viewer. -->
+        <joint damping="0.1" armature="0.005"/>
+        <position kp="20" kv="0.5" forcerange="-3 3" inheritrange="1"/>
+      </default>
+      <default class="nao_finger">
+        <joint damping="0.001"/>
+      </default>
+      <default class="nao_visual">
+        <geom contype="0" conaffinity="0" group="1" material="nao_white"/>
+      </default>
+      <default class="nao_collision">
+        <geom group="3" rgba="0.8 0.3 0.3 0.5"/>
+      </default>
+      <default class="nao_sensor">
+        <site group="4" size="0.005"/>
+      </default>
+      <default class="nao_fsr">
+        <site group="4" type="box" size="0.02 0.015 0.004"/>
+      </default>
+      <default class="nao_effector">
+        <site group="4" size="0.008" rgba="0.2 0.8 0.2 1"/>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <material name="nao_white" rgba="0.93 0.93 0.91 1" specular="0.4" shininess="0.6"/>
+    <material name="nao_grey" rgba="0.33 0.34 0.36 1" specular="0.3" shininess="0.4"/>
+    <material name="nao_accent" rgba="0.95 0.52 0.12 1" specular="0.4" shininess="0.6"/>
+    <material name="nao_eye" rgba="0.05 0.06 0.08 1" specular="0.8" shininess="0.9"/>
+  </asset>
+
+  <worldbody>
+    <body name="torso" pos="0 0 0.3332" childclass="nao">
+      <freejoint name="root"/>
+      <inertial pos="-0.00413 0 0.04342" mass="1.04956" fullinertia="0.00308361 0.0028835 0.0015924 1.43116e-05 -3.30211e-05 -2.70793e-05"/>
+      <geom class="nao_visual" name="torso_shell" type="ellipsoid" pos="-0.008 0 0.04" size="0.055 0.072 0.09"/>
+      <geom class="nao_visual" name="pelvis" type="ellipsoid" pos="-0.008 0 -0.06" size="0.045 0.062 0.03" material="nao_grey"/>
+      <geom class="nao_collision" type="box" pos="-0.008 0 0.04" size="0.045 0.065 0.08"/>
+      <site name="imu" pos="-0.008 0.00606 0.027" class="nao_sensor"/>
+      <body name="Neck" pos="0 0 0.1265">
+        <joint name="HeadYaw" class="nao_joint" axis="0 0 1" range="-2.08567 2.08567"/>
+        <inertial pos="-1e-05 0 -0.02742" mass="0.07842" fullinertia="1.60324e-05 1.70394e-05 5.53372e-06 1.57e-09 3.16276e-09 -5.295e-08"/>
+        <geom class="nao_visual" type="cylinder" fromto="0 0 -0.012 0 0 0.02" size="0.016" material="nao_grey"/>
+        <body name="Head" pos="0 0 0">
+          <joint name="HeadPitch" class="nao_joint" axis="0 1 0" range="-0.671952 0.514872"/>
+          <inertial pos="-0.00112 0 0.05258" mass="0.60533" fullinertia="0.000957766 0.000816836 0.000984976 8.78814e-06 5.33702e-06 -2.99579e-05"/>
+          <geom class="nao_visual" name="head_shell" type="ellipsoid" pos="-0.006 0 0.058" size="0.057 0.066 0.062"/>
+          <geom class="nao_visual" name="eye_left" type="cylinder" pos="0.046 0.029 0.046" zaxis="1 0 0" size="0.012 0.004" material="nao_eye"/>
+          <geom class="nao_visual" name="eye_right" type="cylinder" pos="0.046 -0.029 0.046" zaxis="1 0 0" size="0.012 0.004" material="nao_eye"/>
+          <geom class="nao_visual" name="ear_left" type="cylinder" pos="-0.008 0.064 0.05" zaxis="0 1 0" size="0.03 0.006" material="nao_accent"/>
+          <geom class="nao_visual" name="ear_right" type="cylinder" pos="-0.008 -0.064 0.05" zaxis="0 1 0" size="0.03 0.006" material="nao_accent"/>
+          <geom class="nao_collision" type="capsule" fromto="-0.005 0 0.035 -0.005 0 0.075" size="0.058"/>
+          <site name="Head" class="nao_effector"/>
+          <camera name="CameraTop" pos="0.05871 0 0.06364" quat="0.505208 0.494737 -0.494737 -0.505208" fovy="47.64"/>
+          <camera name="CameraBottom" pos="0.05071 0 0.01774" quat="0.640072 0.300513 -0.300513 -0.640072" fovy="47.64"/>
+        </body>
+      </body>
+      <body name="LShoulder" pos="0 0.098 0.1">
+        <joint name="LShoulderPitch" class="nao_joint" axis="0 1 0" range="-2.08567 2.08567"/>
+        <inertial pos="-0.00165 -0.02663 0.00014" mass="0.09304" fullinertia="1.83025e-05 1.39005e-05 2.01862e-05 2.06011e-06 1.88776e-09 -3.66592e-07"/>
+        <geom class="nao_visual" type="sphere" size="0.032"/>
+        <body name="LBicep" pos="0 0 0">
+          <joint name="LShoulderRoll" class="nao_joint" axis="0 0 1" range="-0.314159 1.32645"/>
+          <inertial pos="0.02455 0.00563 0.0033" mass="0.15777" fullinertia="8.7181e-05 0.000274712 0.000241812 -2.53381e-05 -1.4213e-05 4.71439e-07"/>
+          <geom class="nao_visual" type="capsule" fromto="0.015 0.002 0 0.088 0.013 0" size="0.026"/>
+          <geom class="nao_collision" type="capsule" fromto="0.01 0 0 0.09 0.013 0" size="0.025"/>
+          <body name="LElbow" pos="0.105 0.015 0">
+            <joint name="LElbowYaw" class="nao_joint" axis="1 0 0" range="-2.08567 2.08567"/>
+            <inertial pos="-0.02744 0 -0.00014" mass="0.06483" fullinertia="5.59588e-06 2.66179e-05 2.76294e-05 4.21e-09 2.92241e-07 -1.84e-09"/>
+            <geom class="nao_visual" type="sphere" size="0.021" material="nao_grey"/>
+            <body name="LForeArm" pos="0 0 0">
+              <joint name="LElbowRoll" class="nao_joint" axis="0 0 1" range="-1.54462 -0.0349066"/>
+              <inertial pos="0.02556 0.00281 0.00076" mass="0.07761" fullinertia="2.46746e-05 3.83837e-05 3.59708e-05 3.23152e-06 1.58221e-06 1.39194e-07"/>
+              <geom class="nao_visual" type="capsule" fromto="0.008 0 0 0.048 0 0" size="0.024"/>
+              <geom class="nao_collision" type="capsule" fromto="0 0 0 0.05 0 0" size="0.023"/>
+              <body name="l_wrist" pos="0.05595 0 0">
+                <joint name="LWristYaw" class="nao_joint" axis="1 0 0" range="-1.82387 1.82387"/>
+                <inertial pos="0.03434 -0.00088 0.00308" mass="0.18533" fullinertia="6.86477e-05 0.000135756 0.000133228 1.15465e-07 -2.87254e-06 2.67539e-06"/>
+                <geom class="nao_visual" type="ellipsoid" pos="0.036 0 -0.006" size="0.03 0.021 0.022" material="nao_grey"/>
+                <geom class="nao_collision" type="box" pos="0.04 0 -0.005" size="0.035 0.022 0.022"/>
+                <site name="LArm" pos="0.05775 0 -0.01231" class="nao_effector"/>
+                <body name="l_gripper" pos="0.05775 0 -0.01231">
+                  <joint name="LHand" class="nao_joint" axis="1 0 0" range="0 1"/>
+                  <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                </body>
+                <body name="LFinger21_link" pos="0.06907 -0.01157 -0.00304" quat="0.672286 0.564114 0.308141 -0.367227">
+                  <joint name="LFinger21" class="nao_finger" axis="0 0 1"/>
+                  <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                  <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                  <body name="LFinger22_link" pos="0.01436 0 0" quat="0.877607 0 0 -0.479381">
+                    <joint name="LFinger22" class="nao_finger" axis="0 0 1"/>
+                    <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                    <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                    <body name="LFinger23_link" pos="0.01436 0 0" quat="0.877607 0 0 -0.479381">
+                      <joint name="LFinger23" class="nao_finger" axis="0 0 1"/>
+                      <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                      <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                    </body>
+                  </body>
+                </body>
+                <body name="LFinger11_link" pos="0.06907 0.01157 -0.00304" quat="0.564115 0.672285 0.367228 -0.30814">
+                  <joint name="LFinger11" class="nao_finger" axis="0 0 1"/>
+                  <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                  <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                  <body name="LFinger12_link" pos="0.01436 0 0" quat="0.877607 0 0 -0.479381">
+                    <joint name="LFinger12" class="nao_finger" axis="0 0 1"/>
+                    <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                    <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                    <body name="LFinger13_link" pos="0.01436 0 0" quat="0.877607 0 0 -0.479381">
+                      <joint name="LFinger13" class="nao_finger" axis="0 0 1"/>
+                      <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                      <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                    </body>
+                  </body>
+                </body>
+                <body name="LThumb1_link" pos="0.04895 0 -0.02638" quat="0.706908 -0.70691 0.0167209 0.016721">
+                  <joint name="LThumb1" class="nao_finger" axis="0 0 1"/>
+                  <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                  <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                  <body name="LThumb2_link" pos="0.01436 0 0" quat="0.877607 0 0 -0.479381">
+                    <joint name="LThumb2" class="nao_finger" axis="0 0 1"/>
+                    <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                    <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="LPelvis" pos="0 0.05 -0.085">
+        <joint name="LHipYawPitch" class="nao_joint" axis="0 0.707106 -0.707106" range="-1.14529 0.740718"/>
+        <inertial pos="-0.00781 -0.01114 0.02661" mass="0.06981" fullinertia="2.3407e-05 4.76355e-05 4.97021e-05 1.07922e-06 -1.76003e-06 2.76058e-06"/>
+        <body name="LHip" pos="0 0 0">
+          <joint name="LHipRoll" class="nao_joint" axis="1 0 0" range="-0.379435 0.79046"/>
+          <inertial pos="-0.01549 0.00029 -0.00515" mass="0.14053" fullinertia="2.38445e-05 6.08246e-05 5.43691e-05 -6.53605e-07 7.12893e-06 -2.14072e-07"/>
+          <geom class="nao_visual" type="sphere" size="0.026" material="nao_grey"/>
+          <body name="LThigh" pos="0 0 0">
+            <joint name="LHipPitch" class="nao_joint" axis="0 1 0" range="-1.53589 0.48398"/>
+            <inertial pos="0.00138 0.00221 -0.05373" mass="0.38968" fullinertia="0.000509844 0.000465358 0.000301098 2.11296e-06 5.64129e-05 -7.91029e-06"/>
+            <geom class="nao_visual" type="capsule" fromto="0 0 -0.012 0 0 -0.085" size="0.034"/>
+            <geom class="nao_collision" type="capsule" fromto="0 0 -0.01 0 0 -0.09" size="0.035"/>
+            <body name="LTibia" pos="0 0 -0.1">
+              <joint name="LKneePitch" class="nao_joint" axis="0 1 0" range="-0.0923279 2.11255"/>
+              <inertial pos="0.00453 0.00225 -0.04936" mass="0.30142" fullinertia="0.000446171 0.000388084 0.000185516 3.70584e-06 -3.09008e-05 6.01953e-06"/>
+              <geom class="nao_visual" type="sphere" size="0.024" material="nao_grey"/>
+              <geom class="nao_visual" type="capsule" fromto="0 0 -0.02 0 0 -0.095" size="0.025" material="nao_grey"/>
+              <geom class="nao_visual" type="ellipsoid" pos="0.014 0 -0.052" size="0.024 0.03 0.05"/>
+              <geom class="nao_collision" type="capsule" fromto="0 0 -0.01 0 0 -0.09" size="0.03"/>
+              <body name="LAnklePitch" pos="0 0 -0.1029">
+                <joint name="LAnklePitch" class="nao_joint" axis="0 1 0" range="-1.18944 0.922581"/>
+                <inertial pos="0.00045 0.00029 0.00685" mass="0.13416" fullinertia="3.22034e-05 6.7943e-05 5.48269e-05 -8.83212e-09 4.27549e-06 2.84849e-07"/>
+                <geom class="nao_visual" type="sphere" size="0.02" material="nao_grey"/>
+                <body name="l_ankle" pos="0 0 0">
+                  <joint name="LAnkleRoll" class="nao_joint" axis="1 0 0" range="-0.397761 0.768992"/>
+                  <inertial pos="0.02542 0.0033 -0.03239" mass="0.17184" fullinertia="8.72911e-05 0.000353024 0.000412846 8.71925e-06 -2.10563e-06 3.73459e-07"/>
+                  <geom class="nao_visual" type="ellipsoid" pos="0.012 0 -0.022" size="0.055 0.036 0.02"/>
+                  <geom class="nao_visual" type="box" pos="0.025 0 -0.034" size="0.078 0.044 0.009"/>
+                  <geom class="nao_visual" type="box" pos="0.025 0 -0.0435" size="0.078 0.044 0.0016" material="nao_grey"/>
+                  <geom class="nao_collision" type="box" pos="0.025 0 -0.035" size="0.08 0.045 0.01"/>
+                  <site name="LFsrFL" pos="0.07025 0.0299 -0.04511" class="nao_fsr"/>
+                  <site name="LFsrFR" pos="0.07025 -0.0231 -0.04511" class="nao_fsr"/>
+                  <site name="LFsrRL" pos="-0.03025 0.0299 -0.04511" class="nao_fsr"/>
+                  <site name="LFsrRR" pos="-0.02965 -0.0191 -0.04511" class="nao_fsr"/>
+                  <site name="LLeg" pos="0 0 -0.04511" class="nao_effector"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="RPelvis" pos="0 -0.05 -0.085">
+        <joint name="RHipYawPitch" class="nao_joint" axis="0 0.707106 0.707106" range="-1.14529 0.740718"/>
+        <inertial pos="-0.00781 0.01114 0.02661" mass="0.06981" fullinertia="3.18766e-05 5.18361e-05 5.39657e-05 -1.07152e-06 -1.77295e-06 -7.00664e-06"/>
+        <body name="RHip" pos="0 0 0">
+          <joint name="RHipRoll" class="nao_joint" axis="1 0 0" range="-0.79046 0.379435"/>
+          <inertial pos="-0.01549 -0.00029 -0.00515" mass="0.14053" fullinertia="2.38475e-05 6.0824e-05 5.43727e-05 6.12085e-07 7.10235e-06 2.12392e-07"/>
+          <geom class="nao_visual" type="sphere" size="0.026" material="nao_grey"/>
+          <body name="RThigh" pos="0 0 0">
+            <joint name="RHipPitch" class="nao_joint" axis="0 1 0" range="-1.53589 0.48398"/>
+            <inertial pos="0.00138 -0.00221 -0.05373" mass="0.38968" fullinertia="0.000510607 0.0004665 0.000301333 -2.02799e-06 5.69893e-05 7.09563e-06"/>
+            <geom class="nao_visual" type="capsule" fromto="0 0 -0.012 0 0 -0.085" size="0.034"/>
+            <geom class="nao_collision" type="capsule" fromto="0 0 -0.01 0 0 -0.09" size="0.035"/>
+            <body name="RTibia" pos="0 0 -0.1">
+              <joint name="RKneePitch" class="nao_joint" axis="0 1 0" range="-0.0923279 2.11255"/>
+              <inertial pos="0.00453 -0.00225 -0.04936" mass="0.30142" fullinertia="0.000446921 0.000387711 0.000183741 -3.96872e-06 -3.94009e-05 -5.00034e-06"/>
+              <geom class="nao_visual" type="sphere" size="0.024" material="nao_grey"/>
+              <geom class="nao_visual" type="capsule" fromto="0 0 -0.02 0 0 -0.095" size="0.025" material="nao_grey"/>
+              <geom class="nao_visual" type="ellipsoid" pos="0.014 0 -0.052" size="0.024 0.03 0.05"/>
+              <geom class="nao_collision" type="capsule" fromto="0 0 -0.01 0 0 -0.09" size="0.03"/>
+              <body name="RAnklePitch" pos="0 0 -0.1029">
+                <joint name="RAnklePitch" class="nao_joint" axis="0 1 0" range="-1.1863 0.932006"/>
+                <inertial pos="0.00045 -0.00029 0.00685" mass="0.13416" fullinertia="3.22017e-05 6.79885e-05 5.48747e-05 4.68321e-08 4.28821e-06 -2.71089e-07"/>
+                <geom class="nao_visual" type="sphere" size="0.02" material="nao_grey"/>
+                <body name="r_ankle" pos="0 0 0">
+                  <joint name="RAnkleRoll" class="nao_joint" axis="1 0 0" range="-0.768992 0.397761"/>
+                  <inertial pos="0.02542 -0.0033 -0.03239" mass="0.17184" fullinertia="8.71513e-05 0.000352156 0.000412125 -8.53992e-06 -2.35184e-06 -4.81708e-07"/>
+                  <geom class="nao_visual" type="ellipsoid" pos="0.012 0 -0.022" size="0.055 0.036 0.02"/>
+                  <geom class="nao_visual" type="box" pos="0.025 0 -0.034" size="0.078 0.044 0.009"/>
+                  <geom class="nao_visual" type="box" pos="0.025 0 -0.0435" size="0.078 0.044 0.0016" material="nao_grey"/>
+                  <geom class="nao_collision" type="box" pos="0.025 0 -0.035" size="0.08 0.045 0.01"/>
+                  <site name="RFsrFL" pos="0.07025 0.0231 -0.04511" class="nao_fsr"/>
+                  <site name="RFsrFR" pos="0.07025 -0.0299 -0.04511" class="nao_fsr"/>
+                  <site name="RFsrRL" pos="-0.03025 0.0191 -0.04511" class="nao_fsr"/>
+                  <site name="RFsrRR" pos="-0.02965 -0.0299 -0.04511" class="nao_fsr"/>
+                  <site name="RLeg" pos="0 0 -0.04511" class="nao_effector"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="RShoulder" pos="0 -0.098 0.1">
+        <joint name="RShoulderPitch" class="nao_joint" axis="0 1 0" range="-2.08567 2.08567"/>
+        <inertial pos="-0.00165 0.02663 0.00014" mass="0.09304" fullinertia="1.83025e-05 1.39005e-05 2.01862e-05 -2.06011e-06 1.88776e-09 3.66592e-07"/>
+        <geom class="nao_visual" type="sphere" size="0.032"/>
+        <body name="RBicep" pos="0 0 0">
+          <joint name="RShoulderRoll" class="nao_joint" axis="0 0 1" range="-1.32645 0.314159"/>
+          <inertial pos="0.02455 -0.00563 0.0033" mass="0.15777" fullinertia="0.000103401 0.00027077 0.000254529 5.48849e-05 -1.32643e-05 9.16707e-06"/>
+          <geom class="nao_visual" type="capsule" fromto="0.015 -0.002 0 0.088 -0.013 0" size="0.026"/>
+          <geom class="nao_collision" type="capsule" fromto="0.01 0 0 0.09 -0.013 0" size="0.025"/>
+          <body name="RElbow" pos="0.105 -0.015 0">
+            <joint name="RElbowYaw" class="nao_joint" axis="1 0 0" range="-2.08567 2.08567"/>
+            <inertial pos="-0.02744 0 -0.00014" mass="0.06483" fullinertia="5.59588e-06 2.66179e-05 2.76294e-05 4.21e-09 2.92241e-07 -1.84e-09"/>
+            <geom class="nao_visual" type="sphere" size="0.021" material="nao_grey"/>
+            <body name="RForeArm" pos="0 0 0">
+              <joint name="RElbowRoll" class="nao_joint" axis="0 0 1" range="0.0349066 1.54462"/>
+              <inertial pos="0.02556 -0.00281 0.00076" mass="0.07761" fullinertia="2.47331e-05 3.84719e-05 3.59319e-05 -3.2418e-06 9.06451e-07 -1.38804e-07"/>
+              <geom class="nao_visual" type="capsule" fromto="0.008 0 0 0.048 0 0" size="0.024"/>
+              <geom class="nao_collision" type="capsule" fromto="0 0 0 0.05 0 0" size="0.023"/>
+              <body name="r_wrist" pos="0.05595 0 0">
+                <joint name="RWristYaw" class="nao_joint" axis="1 0 0" range="-1.82387 1.82387"/>
+                <inertial pos="0.03434 0.00088 0.00308" mass="0.18533" fullinertia="6.86477e-05 0.000135756 0.000133228 1.13165e-05 -2.87254e-06 3.68003e-06"/>
+                <geom class="nao_visual" type="ellipsoid" pos="0.036 0 -0.006" size="0.03 0.021 0.022" material="nao_grey"/>
+                <geom class="nao_collision" type="box" pos="0.04 0 -0.005" size="0.035 0.022 0.022"/>
+                <site name="RArm" pos="0.05775 0 -0.01213" class="nao_effector"/>
+                <body name="r_gripper" pos="0.05775 0 -0.01213">
+                  <joint name="RHand" class="nao_joint" axis="1 0 0" range="0 1"/>
+                  <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                </body>
+                <body name="RFinger21_link" pos="0.06907 -0.01157 -0.00304" quat="0.672286 0.564114 0.308141 -0.367227">
+                  <joint name="RFinger21" class="nao_finger" axis="0 0 1"/>
+                  <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                  <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                  <body name="RFinger22_link" pos="0.01436 0 0" quat="0.877607 0 0 -0.479381">
+                    <joint name="RFinger22" class="nao_finger" axis="0 0 1"/>
+                    <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                    <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                    <body name="RFinger23_link" pos="0.01436 0 0" quat="0.877607 0 0 -0.479381">
+                      <joint name="RFinger23" class="nao_finger" axis="0 0 1"/>
+                      <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                      <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                    </body>
+                  </body>
+                </body>
+                <body name="RFinger11_link" pos="0.06907 0.01157 -0.00304" quat="0.564115 0.672285 0.367228 -0.30814">
+                  <joint name="RFinger11" class="nao_finger" axis="0 0 1"/>
+                  <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                  <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                  <body name="RFinger12_link" pos="0.01436 0 0" quat="0.877607 0 0 -0.479381">
+                    <joint name="RFinger12" class="nao_finger" axis="0 0 1"/>
+                    <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                    <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                    <body name="RFinger13_link" pos="0.01436 0 0" quat="0.877607 0 0 -0.479381">
+                      <joint name="RFinger13" class="nao_finger" axis="0 0 1"/>
+                      <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                      <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                    </body>
+                  </body>
+                </body>
+                <body name="RThumb1_link" pos="0.04895 0 -0.02638" quat="0.706908 -0.70691 0.0167209 0.016721">
+                  <joint name="RThumb1" class="nao_finger" axis="0 0 1"/>
+                  <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                  <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                  <body name="RThumb2_link" pos="0.01436 0 0" quat="0.877607 0 0 -0.479381">
+                    <joint name="RThumb2" class="nao_finger" axis="0 0 1"/>
+                    <inertial pos="0 0 0" mass="2e-06" fullinertia="1.1e-09 1.1e-09 1.1e-09 0 0 0"/>
+                    <geom class="nao_visual" type="capsule" fromto="0 0 0 0.0134 0 0" size="0.0045" material="nao_grey"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <contact>
+    <!-- Adjacent bodies whose joints sit between geom-less bodies, so parent filtering misses them. -->
+    <exclude body1="torso" body2="Head"/>
+    <exclude body1="torso" body2="LBicep"/>
+    <exclude body1="torso" body2="RBicep"/>
+    <exclude body1="torso" body2="LThigh"/>
+    <exclude body1="torso" body2="RThigh"/>
+    <exclude body1="LBicep" body2="LForeArm"/>
+    <exclude body1="RBicep" body2="RForeArm"/>
+    <exclude body1="LTibia" body2="l_ankle"/>
+    <exclude body1="RTibia" body2="r_ankle"/>
+    <exclude body1="LThigh" body2="RThigh"/>
+  </contact>
+
+  <equality>
+    <!-- RHipYawPitch shares LHipYawPitch's motor; the fingers follow their hand (URDF mimic). -->
+    <joint joint1="RHipYawPitch" joint2="LHipYawPitch" polycoef="0 1 0 0 0"/>
+    <joint joint1="LFinger11" joint2="LHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="LFinger12" joint2="LHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="LFinger13" joint2="LHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="LFinger21" joint2="LHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="LFinger22" joint2="LHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="LFinger23" joint2="LHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="LThumb1" joint2="LHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="LThumb2" joint2="LHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="RFinger11" joint2="RHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="RFinger12" joint2="RHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="RFinger13" joint2="RHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="RFinger21" joint2="RHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="RFinger22" joint2="RHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="RFinger23" joint2="RHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="RThumb1" joint2="RHand" polycoef="0 0.999899 0 0 0"/>
+    <joint joint1="RThumb2" joint2="RHand" polycoef="0 0.999899 0 0 0"/>
+  </equality>
+
+  <actuator>
+    <position class="nao_joint" name="HeadYaw" joint="HeadYaw"/>
+    <position class="nao_joint" name="HeadPitch" joint="HeadPitch"/>
+    <position class="nao_joint" name="LShoulderPitch" joint="LShoulderPitch"/>
+    <position class="nao_joint" name="LShoulderRoll" joint="LShoulderRoll"/>
+    <position class="nao_joint" name="LElbowYaw" joint="LElbowYaw"/>
+    <position class="nao_joint" name="LElbowRoll" joint="LElbowRoll"/>
+    <position class="nao_joint" name="LWristYaw" joint="LWristYaw"/>
+    <position class="nao_joint" name="LHand" joint="LHand"/>
+    <position class="nao_joint" name="LHipYawPitch" joint="LHipYawPitch"/>
+    <position class="nao_joint" name="LHipRoll" joint="LHipRoll"/>
+    <position class="nao_joint" name="LHipPitch" joint="LHipPitch"/>
+    <position class="nao_joint" name="LKneePitch" joint="LKneePitch"/>
+    <position class="nao_joint" name="LAnklePitch" joint="LAnklePitch"/>
+    <position class="nao_joint" name="LAnkleRoll" joint="LAnkleRoll"/>
+    <position class="nao_joint" name="RHipYawPitch" joint="RHipYawPitch"/>
+    <position class="nao_joint" name="RHipRoll" joint="RHipRoll"/>
+    <position class="nao_joint" name="RHipPitch" joint="RHipPitch"/>
+    <position class="nao_joint" name="RKneePitch" joint="RKneePitch"/>
+    <position class="nao_joint" name="RAnklePitch" joint="RAnklePitch"/>
+    <position class="nao_joint" name="RAnkleRoll" joint="RAnkleRoll"/>
+    <position class="nao_joint" name="RShoulderPitch" joint="RShoulderPitch"/>
+    <position class="nao_joint" name="RShoulderRoll" joint="RShoulderRoll"/>
+    <position class="nao_joint" name="RElbowYaw" joint="RElbowYaw"/>
+    <position class="nao_joint" name="RElbowRoll" joint="RElbowRoll"/>
+    <position class="nao_joint" name="RWristYaw" joint="RWristYaw"/>
+    <position class="nao_joint" name="RHand" joint="RHand"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="HeadYaw" joint="HeadYaw"/>
+    <jointpos name="HeadPitch" joint="HeadPitch"/>
+    <jointpos name="LShoulderPitch" joint="LShoulderPitch"/>
+    <jointpos name="LShoulderRoll" joint="LShoulderRoll"/>
+    <jointpos name="LElbowYaw" joint="LElbowYaw"/>
+    <jointpos name="LElbowRoll" joint="LElbowRoll"/>
+    <jointpos name="LWristYaw" joint="LWristYaw"/>
+    <jointpos name="LHand" joint="LHand"/>
+    <jointpos name="LHipYawPitch" joint="LHipYawPitch"/>
+    <jointpos name="LHipRoll" joint="LHipRoll"/>
+    <jointpos name="LHipPitch" joint="LHipPitch"/>
+    <jointpos name="LKneePitch" joint="LKneePitch"/>
+    <jointpos name="LAnklePitch" joint="LAnklePitch"/>
+    <jointpos name="LAnkleRoll" joint="LAnkleRoll"/>
+    <jointpos name="RHipYawPitch" joint="RHipYawPitch"/>
+    <jointpos name="RHipRoll" joint="RHipRoll"/>
+    <jointpos name="RHipPitch" joint="RHipPitch"/>
+    <jointpos name="RKneePitch" joint="RKneePitch"/>
+    <jointpos name="RAnklePitch" joint="RAnklePitch"/>
+    <jointpos name="RAnkleRoll" joint="RAnkleRoll"/>
+    <jointpos name="RShoulderPitch" joint="RShoulderPitch"/>
+    <jointpos name="RShoulderRoll" joint="RShoulderRoll"/>
+    <jointpos name="RElbowYaw" joint="RElbowYaw"/>
+    <jointpos name="RElbowRoll" joint="RElbowRoll"/>
+    <jointpos name="RWristYaw" joint="RWristYaw"/>
+    <jointpos name="RHand" joint="RHand"/>
+    <gyro name="gyro" site="imu"/>
+    <accelerometer name="accelerometer" site="imu"/>
+    <touch name="LFsrFL" site="LFsrFL"/>
+    <touch name="LFsrFR" site="LFsrFR"/>
+    <touch name="LFsrRL" site="LFsrRL"/>
+    <touch name="LFsrRR" site="LFsrRR"/>
+    <touch name="RFsrFL" site="RFsrFL"/>
+    <touch name="RFsrFR" site="RFsrFR"/>
+    <touch name="RFsrRL" site="RFsrRL"/>
+    <touch name="RFsrRR" site="RFsrRR"/>
+  </sensor>
+</mujoco>

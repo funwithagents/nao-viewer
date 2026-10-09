@@ -10,7 +10,7 @@ nao-viewer is the MuJoCo window for NAO, one of the three packages of the NAO to
 |---|---|---|
 | [project.md](project.md) | Project structure and tooling: Python version, packaging with uv, layout conventions | Implemented |
 | [testing.md](testing.md) | Testing strategy: two-tier `tests/`/`tests-e2e/` split, in-process mock NAOqi, live tier gated on `NAOQI_URL` | Updated |
-| [model.md](model.md) | The NAO MJCF model: committed `nao.xml` from the URDF, joints, couplings, sensors, cameras, effector sites, placeholder visuals; scenes; `NaoPose` and `PoseWriter` | Draft |
+| [model.md](model.md) | The NAO MJCF model: committed `nao.xml` from the URDF, joints, couplings, sensors, cameras, effector sites, placeholder visuals; scenes; `NaoPose` and `PoseWriter` | Implemented |
 | [meshes.md](meshes.md) | `fetch-meshes` license-gated install and conversion, and loading Aldebaran's meshes in place of the placeholder visuals | Draft |
 | [source.md](source.md) | Pose sources: `connect()` with retries, `NaoqiSource` polling NAOqi at 50 Hz with reconnect and target identification | Draft |
 | [viewer.md](viewer.md) | The render loop on `mujoco.viewer.launch_passive`: pose → `mj_kinematics` at 60 Hz, status overlay, ghost, attribution | Draft |

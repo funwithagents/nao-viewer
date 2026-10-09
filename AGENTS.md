@@ -15,6 +15,8 @@ Where things live. This is a coarse, module-level map — for the full file inve
 | `plans/` | Implementation plans turning settled specs into buildable steps — indexed by [plans/_index.md](plans/_index.md) |
 | `tests/` | Fast, deterministic, no-network tests; mirrors the `src/nao_viewer/` module structure |
 | `tests-e2e/` | Opt-in live tests against a running NAOqi given by `NAOQI_URL` (not collected by default `pytest`) |
+| `typings/` | Local type stubs for pyright (a partial `mujoco` stub: its compiled bindings carry no types) |
+| `third_party/` | Vendored third-party sources with their licenses (the NAO URDF the model was converted from) — see `THIRD_PARTY_NOTICES.md` |
 
 ### `src/nao_viewer/` modules
 
@@ -23,6 +25,7 @@ Where things live. This is a coarse, module-level map — for the full file inve
 | Module | Role | Spec |
 |---|---|---|
 | [`src/nao_viewer/__init__.py`](src/nao_viewer/__init__.py) | Package glue (exempt from the spec rule) | — |
+| [`src/nao_viewer/model.py`](src/nao_viewer/model.py) | The NAO model (`models/nao.xml`) and scenes (`scenes/`): `load_world`, `NaoPose`, `PoseWriter` | [model.md](specs/model.md) |
 
 **Keep this map current:** when you add, rename, or remove a top-level `src/nao_viewer/` module or a root directory, update the map in the same change — same discipline as keeping spec/plan statuses honest (below). A test (`tests/test_project_map.py`) enforces that every `src/nao_viewer/*.py` module appears here and vice-versa — and that the spec frontmatter (see below) stays honest too.
 
