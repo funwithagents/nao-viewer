@@ -136,7 +136,9 @@ class MockNaoqi:
         session.registerService("ALMemory", _Memory(self))
         if self.target == "nao-sim":
             with self._lock:
-                self._memory["NaoSim/Version"] = self.version
+                # nao-sim publishes its own version too: identification must not read it.
+                self._memory["NaoSim/Version"] = "0.0.1"
+                self._memory["NaoSim/NaoqiVersion"] = self.version
             session.registerService("NaoSim", _NaoSim())
         elif self.target == "real":
             session.registerService("ALSystem", _System(self.version))

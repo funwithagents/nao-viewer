@@ -93,7 +93,7 @@ def connect(url: str, *, cancel: threading.Event | None = None) -> Any:
 def identify(session: Any, url: str) -> TargetInfo:
     services = {service["name"] for service in session.services()}
     if "NaoSim" in services:
-        version = session.service("ALMemory").getData("NaoSim/Version")
+        version = session.service("ALMemory").getData("NaoSim/NaoqiVersion")
         return TargetInfo(url, "nao-sim", str(version))
     if "ALSystem" in services:
         return TargetInfo(url, "real", str(session.service("ALSystem").systemVersion()))

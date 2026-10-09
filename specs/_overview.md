@@ -66,7 +66,7 @@ Both run the same loop and the same pose source; the mode only decides what the 
 ### What nao-viewer relies on from a target
 
 - `ALMotion.getBodyNames("Body")`, `getAngles("Body", True/False)`, `getTransform("Torso", 1, True)`; for `check-model` also `setStiffnesses`, `angleInterpolation` and `getTransform(effector, 0, True)`.
-- Target identification: the `NaoSim` service and the ALMemory key `NaoSim/Version` mark a nao-sim target; `ALSystem` and `systemVersion()` mark a real robot; neither means a desktop virtual robot. These names are a contract with nao-sim.
+- Target identification: the `NaoSim` service marks a nao-sim target, whose NAOqi version is the ALMemory key `NaoSim/NaoqiVersion`; `ALSystem` and `systemVersion()` mark a real robot; neither means a desktop virtual robot. These names are a contract with nao-sim.
 
 ### Dependencies
 

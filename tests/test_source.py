@@ -106,7 +106,7 @@ def test_unknown_body_names_are_left_out_and_logged_once(
     ("target", "version", "expected_version"),
     [
         ("virtual", "2.1.4.13", None),
-        ("nao-sim", "0.3.0", "0.3.0"),
+        ("nao-sim", "2.8.7.4", "2.8.7.4"),
         ("real", "2.8.6.23", "2.8.6.23"),
     ],
 )

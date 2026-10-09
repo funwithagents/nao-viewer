@@ -55,7 +55,7 @@ class PoseSource(Protocol):
   - reads `ALMotion.getBodyNames("Body")` once and keeps that order;
   - logs names unknown to the model (`model.JOINT_NAMES`) once per connection, and leaves them out of the samples' poses; joints NAOqi doesn't report stay at 0;
   - identifies the target:
-    - **`nao-sim`** if the `NaoSim` service exists, version from the ALMemory key `NaoSim/Version`;
+    - **`nao-sim`** if the `NaoSim` service exists, NAOqi version from the ALMemory key `NaoSim/NaoqiVersion` (not `NaoSim/Version`, which holds nao-sim's own version);
     - **`real`** if `ALSystem` exists, version from `ALSystem.systemVersion()`;
     - **`virtual`** otherwise: a plain desktop `naoqi-bin` has neither, and its version is unknown (`None`).
 - **Polling thread**: each tick calls `ALMotion.getAngles("Body", True)` and `ALMotion.getTransform("Torso", 1, True)` (frame 1 = world). With `commanded=True` it also calls `getAngles("Body", False)`. Ticks are due on a fixed schedule at `rate_hz` (timing each tick from its actual start would lose the sleep overshoot, about 3 ms per 20 ms on macOS, and run at ~43 Hz); if a tick overruns, the next one starts immediately and the schedule restarts from there, rather than catching up.
