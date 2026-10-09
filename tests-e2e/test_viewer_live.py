@@ -38,7 +38,7 @@ def test_sim_mode_serves_real_camera_frames():
             "mode": "sim",
             "headless": not window_requested(),
             "naoqi": {"url": url},
-            "world": {"scene": "table"},
+            "world": {"scene": "table", "variant": "placeholder"},
         }
     )
     with NaoViewer(config) as viewer:

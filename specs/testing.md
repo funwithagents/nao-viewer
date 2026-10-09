@@ -64,6 +64,12 @@ A windowed viewer process (a MuJoCo window, OpenGL, a subprocess) only runs in t
 
 If the package holds process-global or singleton state, both tiers carry an identical autouse fixture (in each tier's `conftest.py`) that resets it before and after every test, so no state — or background timers/threads — leaks across tests. The fixture is duplicated rather than shared because `tests-e2e/` isn't a package that imports from `tests/`, and it's only a few lines.
 
+**Aldebaran's meshes.** A developer may have the real meshes installed ([meshes.md](meshes.md)), and they must change no test's result:
+
+- Every test that builds or renders a model names its variant (`variant="placeholder"`, or `"auto"`/`"aldebaran"` where that is what it tests). A viewer started as a subprocess gets it from its config.
+- As a safety net, `tests/conftest.py` points the meshes folder at an empty temporary folder for the whole session. A default (`"auto"`) then always resolves to the placeholder, and no test reads or writes the real install. Mesh tests install a test-built release of their own.
+- In the e2e tier, only `test_meshes_live.py` uses the real meshes. The live viewer tests name `"placeholder"`.
+
 ## Live tier: skip without an endpoint
 
 A live test needs a NAOqi to talk to, and it must **skip, never fail**, when none is configured. That way anyone without a robot or a container, including CI, can run the tier without breaking it. The endpoint comes from the `NAOQI_URL` environment variable (for example `tcp://127.0.0.1:9559` for nao-sim, `tcp://<robot>:9559` for a real NAO). `tests-e2e/support.require_env(NAME)` returns the variable or calls `pytest.skip(...)` when it is unset. Nothing about the endpoint is committed.

@@ -119,7 +119,7 @@ class MockNaoqi:
         self._failure: str | None = None
         self._session: Any = None
         self.url = "tcp://127.0.0.1:0"
-        self._model = load_world()
+        self._model = load_world(variant="placeholder")
         self._data = mujoco.MjData(self._model)
         self._writer = PoseWriter(self._model)
 

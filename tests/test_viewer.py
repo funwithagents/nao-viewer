@@ -53,7 +53,7 @@ class FakeSource:
 
 @pytest.fixture(scope="module")
 def world() -> mujoco.MjModel:
-    return load_world()
+    return load_world(variant="placeholder")
 
 
 def joint(state: ViewerState, name: str) -> float:

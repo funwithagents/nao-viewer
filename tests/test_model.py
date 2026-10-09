@@ -57,7 +57,7 @@ def urdf_model() -> mujoco.MjModel:
 
 @pytest.fixture(scope="module")
 def world() -> mujoco.MjModel:
-    return load_world()
+    return load_world(variant="placeholder")
 
 
 def _hinge_names(model: mujoco.MjModel) -> list[str]:
@@ -296,14 +296,16 @@ def test_load_world_accepts_a_user_scene_file(tmp_path: Path):
     scene.write_text(
         '<mujoco><worldbody><geom name="table" type="box" pos="0.4 0 0.2" size="0.2 0.3 0.01"/></worldbody></mujoco>'
     )
-    model = load_world(scene)
+    model = load_world(scene, variant="placeholder")
     assert model.geom("table").size[0] == pytest.approx(0.2)
     assert model.joint("HeadYaw").qposadr >= 0
-    assert load_world(str(scene)).ngeom == model.ngeom
+    assert load_world(str(scene), variant="placeholder").ngeom == model.ngeom
 
 
 def test_load_world_names_the_model_for_the_window_title():
-    model = load_world(name="nao-viewer · mirror · tcp://127.0.0.1:9559")
+    model = load_world(
+        variant="placeholder", name="nao-viewer · mirror · tcp://127.0.0.1:9559"
+    )
     assert (
         model.names.split(b"\0")[0].decode()
         == "nao-viewer · mirror · tcp://127.0.0.1:9559"
@@ -348,7 +350,9 @@ def test_variants_with_installed_meshes(
             if model.geom_group[g] == 1
         }
 
-    assert visual_types(load_world("table")) == {mujoco.mjtGeom.mjGEOM_MESH}
+    assert visual_types(load_world("table", variant="auto")) == {
+        mujoco.mjtGeom.mjGEOM_MESH
+    }
     assert mujoco.mjtGeom.mjGEOM_MESH not in visual_types(
         load_world(variant="placeholder")
     )

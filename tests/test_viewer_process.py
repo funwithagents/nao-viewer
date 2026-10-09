@@ -61,7 +61,7 @@ def stub_render(
 
 @pytest.fixture(scope="module")
 def world() -> mujoco.MjModel:
-    return load_world("table")
+    return load_world("table", variant="placeholder")
 
 
 class Harness:
