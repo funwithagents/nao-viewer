@@ -77,7 +77,7 @@ JOINT_NAMES: tuple[str, ...]                        # the 26 names above, NAOqi 
 Variant = Literal["auto", "placeholder", "aldebaran"]
 
 def resolve_variant(variant: Variant = "auto") -> Literal["placeholder", "aldebaran"]
-def load_world(scene: str | Path | None = None, variant: Variant = "auto") -> mujoco.MjModel
+def load_world(scene: str | Path | None = None, variant: Variant = "auto", name: str | None = None) -> mujoco.MjModel
 
 @dataclass(frozen=True)
 class NaoPose:
@@ -94,7 +94,7 @@ class PoseWriter:
 ```
 
 - `resolve_variant("auto")` returns `"aldebaran"` when [meshes.md](meshes.md) reports an installed, accepted mesh set, and `"placeholder"` otherwise. Asking for `"aldebaran"` when the meshes are missing raises an error that names `nao-viewer fetch-meshes`.
-- `load_world` loads `nao.xml` as an `MjSpec`. For `"aldebaran"` it swaps the visuals ([meshes.md](meshes.md)), then attaches the robot into the scene and compiles.
+- `load_world` loads `nao.xml` as an `MjSpec`. For `"aldebaran"` it swaps the visuals ([meshes.md](meshes.md)), then attaches the robot into the scene and compiles. `name`, when given, becomes the compiled model's name, which MuJoCo's viewer shows as its window title ([viewer.md](viewer.md)).
 - `PoseWriter.apply` runs `mj_camlight` after `mj_kinematics`, because `mj_kinematics` doesn't pose the cameras and the head-camera renders need them.
 - `PoseWriter.apply` ignores names the model doesn't know (logged once) and leaves joints missing from the pose unchanged. Values outside a joint's range are written as given: the viewer shows what NAOqi reports.
 

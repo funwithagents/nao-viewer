@@ -31,7 +31,7 @@ The mode is an argument of `launch`, because it changes what the viewer does:
 | Pose | From NAOqi | From NAOqi |
 | Default scene | `"empty"` (floor and light) | `"table"` (objects in front of the robot) |
 | `camera_frame` | Refused with `ModeError`. A real robot has its own cameras, served by `ALVideoDevice`. | Renders what the head cameras see in the simulated world |
-| Window title | `nao-viewer · mirror · <url>` | `nao-viewer · sim · <url>` |
+| Window title | `MuJoCo : nao-viewer · mirror · <url>` | `MuJoCo : nao-viewer · sim · <url>` |
 
 Both modes run the same [viewer loop](viewer.md) and [pose source](source.md). The mode only sets the defaults above and which requests the viewer process accepts. Sim mode does not refuse a real robot as its target, but the frames would show the simulated scene, not the robot's surroundings.
 

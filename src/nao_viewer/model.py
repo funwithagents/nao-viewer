@@ -59,11 +59,16 @@ def _scene_path(scene: str | Path | None) -> Path:
 
 
 def load_world(
-    scene: str | Path | None = None, variant: Variant = "auto"
+    scene: str | Path | None = None, variant: Variant = "auto", name: str | None = None
 ) -> mujoco.MjModel:
-    """Compile a scene (bundled name or MJCF path, default "empty") with the NAO attached to it."""
+    """Compile a scene (bundled name or MJCF path, default "empty") with the NAO attached to it.
+
+    `name` becomes the compiled model's name, which MuJoCo's viewer shows as its window title.
+    """
     resolve_variant(variant)
     world = mujoco.MjSpec.from_file(str(_scene_path(scene)))
+    if name is not None:
+        world.modelname = name
     robot = mujoco.MjSpec.from_file(str(_MODEL_PATH))
     # An empty prefix keeps the robot's names (joints, cameras, sites) as in nao.xml.
     world.worldbody.add_frame().attach_body(robot.body("torso"), "", "")

@@ -292,6 +292,14 @@ def test_load_world_accepts_a_user_scene_file(tmp_path: Path):
     assert load_world(str(scene)).ngeom == model.ngeom
 
 
+def test_load_world_names_the_model_for_the_window_title():
+    model = load_world(name="nao-viewer · mirror · tcp://127.0.0.1:9559")
+    assert (
+        model.names.split(b"\0")[0].decode()
+        == "nao-viewer · mirror · tcp://127.0.0.1:9559"
+    )
+
+
 def test_load_world_rejects_an_unknown_scene_name():
     with pytest.raises(ValueError, match="empty"):
         load_world("no-such-scene")
