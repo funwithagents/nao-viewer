@@ -17,6 +17,7 @@ nao-viewer is the MuJoCo window for NAO, one of the three packages of the NAO to
 | [config.md](config.md) | `NaoViewerConfig`: mode, headless, NAOqi, world, ghost; `from_dict`/`from_json`/`from_json_file`, `to_dict`, `ConfigError` naming the key; example files | Implemented |
 | [api.md](api.md) | Public API: `NaoViewer(config)` with `launch()` starting the viewer in its own process (`mjpython` on macOS), `camera_frame`, `status`, `wait`, `close`; headless sim with offscreen rendering (Mesa's EGL on Linux); loopback protocol; bundled scenes | Implemented |
 | [check_model.md](check_model.md) | `check-model`: forward-kinematics cross-check against NAOqi, 2 mm / 1° | Implemented |
+| [ci.md](ci.md) | Continuous integration: `check`, `fast-tier` and `e2e-nao-sim` on GitHub's runners: the fast tier, the live tier headless and windowed against a real NAOqi 2.1 built by nao-sim at a pinned commit, its images cached | Implemented |
 | [cli.md](cli.md) | Thin `nao-viewer` command: `view --config`, `check-model`, `fetch-meshes` | Implemented |
 
 Each spec also opens with a YAML **frontmatter** block declaring the `code:` and `tests:` files it governs — the spec → code/tests mapping the spec-drift checks use to scope what they compare. Keep it current when files move, and see [AGENTS.md](../AGENTS.md) ("Spec frontmatter") for the full convention.

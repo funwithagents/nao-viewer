@@ -6,16 +6,15 @@ Viewers open headless unless NAO_VIEWER_E2E_WINDOW=1, which opens their windows 
 import time
 
 import numpy as np
-import qi
 from support import require_env, require_window, window_requested
 
 from nao_viewer import NaoViewer, NaoViewerConfig
+from nao_viewer.source import connect
 
 
 def _head_can_move(url: str) -> bool:
     """Moving the head is fine on nao-sim or a virtual robot, never on a real one."""
-    session = qi.Session()
-    session.connect(url)
+    session = connect(url)  # retries: the libqi 3 wheels fail some connects at once
     try:
         return "ALSystem" not in {service["name"] for service in session.services()}
     finally:
@@ -23,8 +22,7 @@ def _head_can_move(url: str) -> bool:
 
 
 def _move_head(url: str, yaw: float) -> None:
-    session = qi.Session()
-    session.connect(url)
+    session = connect(url)  # retries: the libqi 3 wheels fail some connects at once
     try:
         motion = session.service("ALMotion")
         motion.setStiffnesses("Head", 1.0)
