@@ -25,6 +25,7 @@ Where things live. This is a coarse, module-level map — for the full file inve
 | Module | Role | Spec |
 |---|---|---|
 | [`src/nao_viewer/__init__.py`](src/nao_viewer/__init__.py) | Package glue (exempt from the spec rule) | — |
+| [`src/nao_viewer/source.py`](src/nao_viewer/source.py) | Pose sources: `connect` with retries, `NaoqiSource` polling NAOqi with reconnection and target identification | [source.md](specs/source.md) |
 | [`src/nao_viewer/model.py`](src/nao_viewer/model.py) | The NAO model (`models/nao.xml`) and scenes (`scenes/`): `load_world`, `NaoPose`, `PoseWriter` | [model.md](specs/model.md) |
 
 **Keep this map current:** when you add, rename, or remove a top-level `src/nao_viewer/` module or a root directory, update the map in the same change — same discipline as keeping spec/plan statuses honest (below). A test (`tests/test_project_map.py`) enforces that every `src/nao_viewer/*.py` module appears here and vice-versa — and that the spec frontmatter (see below) stays honest too.

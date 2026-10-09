@@ -5,11 +5,12 @@ code:
   - tests-e2e/conftest.py
   - tests-e2e/support.py
 tests:
+  - tests/test_mock_naoqi.py
 ---
 
 # Testing
 
-**Status:** Updated
+**Status:** Implemented
 
 ## Purpose
 
@@ -47,7 +48,8 @@ nao-viewer owns a small mock rather than borrowing one from nao-bridge, which si
   - `ALMemory`: `getData`, `insertData`.
   - Optional `NaoSim` and `ALSystem` services, so all three target identifications can be tested.
 - **Effector transforms**: `getTransform` for effectors comes from the forward kinematics of the committed model (`nao.xml`). A test can add a fixed error to one effector, so `check-model` is tested both passing and failing.
-- **Control from tests**: a pytest fixture yields `(url, mock)`. The test sets the pose (`mock.set_pose(...)`), can make calls fail or the session drop (`mock.disconnect()`) to exercise reconnection, and can read the calls received.
+- **Control from tests**: a pytest fixture (`mock_naoqi`) yields `(url, mock)` for a virtual robot; other targets are built with `MockNaoqi(target=...)`. The test sets the pose (`mock.set_pose(...)`), can make calls fail (`mock.fail_calls(...)`), drop the session (`mock.disconnect()`) and serve again on the same port (`mock.restart()`) to exercise reconnection, and can read the calls received (`mock.calls_to(...)`).
+- **Verified transport**: the libqi 3.1.6 fork serves plain Python objects from a standalone session, a missing service raises `RuntimeError`, closing the server disconnects clients, and a restarted server rebinds the same port at once.
 
 ## Testing the viewer process
 

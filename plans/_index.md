@@ -9,6 +9,7 @@ Implementation plans for nao-viewer — each plan turns a settled part of a spec
 | Plan | Description | Status |
 |---|---|---|
 | [202610090930_nao-model.md](202610090930_nao-model.md) | Vendored URDF, committed `nao.xml` with placeholder visuals, `empty` scene, `model.py` (implements [model.md](../specs/model.md)) | Done |
+| [202610090954_pose-source.md](202610090954_pose-source.md) | `connect`, `NaoqiSource` with reconnection and target identification, and the in-process mock NAOqi (implements [source.md](../specs/source.md), [testing.md](../specs/testing.md)) | Done |
 
 ## Status legend
 

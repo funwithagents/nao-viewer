@@ -9,10 +9,10 @@ nao-viewer is the MuJoCo window for NAO, one of the three packages of the NAO to
 | Spec | Description | Status |
 |---|---|---|
 | [project.md](project.md) | Project structure and tooling: Python version, packaging with uv, layout conventions | Implemented |
-| [testing.md](testing.md) | Testing strategy: two-tier `tests/`/`tests-e2e/` split, in-process mock NAOqi, live tier gated on `NAOQI_URL` | Updated |
+| [testing.md](testing.md) | Testing strategy: two-tier `tests/`/`tests-e2e/` split, in-process mock NAOqi, live tier gated on `NAOQI_URL` | Implemented |
 | [model.md](model.md) | The NAO MJCF model: committed `nao.xml` from the URDF, joints, couplings, sensors, cameras, effector sites, placeholder visuals; scenes; `NaoPose` and `PoseWriter` | Implemented |
 | [meshes.md](meshes.md) | `fetch-meshes` license-gated install and conversion, and loading Aldebaran's meshes in place of the placeholder visuals | Draft |
-| [source.md](source.md) | Pose sources: `connect()` with retries, `NaoqiSource` polling NAOqi at 50 Hz with reconnect and target identification | Draft |
+| [source.md](source.md) | Pose sources: `connect()` with retries, `NaoqiSource` polling NAOqi at 50 Hz with reconnect and target identification | Implemented |
 | [viewer.md](viewer.md) | The render loop on `mujoco.viewer.launch_passive`: pose → `mj_kinematics` at 60 Hz, status overlay, ghost, attribution | Draft |
 | [api.md](api.md) | Public API: `launch(url, mode="mirror"\|"sim")` starts the viewer in its own process (`mjpython` on macOS) and returns a `Viewer` handle (`camera_frame`, `status`, `wait`, `close`); loopback protocol; bundled scenes | Draft |
 | [check_model.md](check_model.md) | `check-model`: forward-kinematics cross-check against NAOqi, 2 mm / 1° | Draft |
