@@ -1,11 +1,11 @@
-"""The window: poses the model from a pose source and draws it, with no physics."""
+"""The window: poses the model from a pose source and draws it, with no physics; or the same
+posing with no window, for a headless viewer."""
 
 import threading
 import time
 from collections.abc import Callable
 
 import mujoco
-import mujoco.viewer
 import numpy as np
 
 from nao_viewer.model import PoseWriter
@@ -24,6 +24,8 @@ _VISUAL_GROUP = 1
 
 # Font, grid position, left column, right column: the tuples Handle.set_texts takes.
 Text = tuple[int | None, int | None, str | None, str | None]
+# Called between frames with the model, its data and the sample it is posed with.
+FrameHook = Callable[[mujoco.MjModel, mujoco.MjData, Sample | None], None]
 
 
 def _robot_visuals_option() -> mujoco.MjvOption:
@@ -162,8 +164,7 @@ def run(
     *,
     ghost: bool = False,
     attribution: str | None = None,
-    on_frame: Callable[[mujoco.MjModel, mujoco.MjData, Sample | None], None]
-    | None = None,
+    on_frame: FrameHook | None = None,
     stop: threading.Event | None = None,
 ) -> None:
     """Show the robot in a MuJoCo window until it is closed or `stop` is set. On macOS, needs mjpython.
@@ -171,6 +172,8 @@ def run(
     `on_frame(model, data, sample)` runs between frames, on this thread, with the sample the model
     is posed with.
     """
+    import mujoco.viewer  # the window stack (GLFW), which a headless viewer never loads
+
     stop = stop or threading.Event()
     state = ViewerState(model, source, ghost=ghost, attribution=attribution)
     with mujoco.viewer.launch_passive(
@@ -186,7 +189,7 @@ def run(
             handle.cam.distance = 1.3
             handle.cam.azimuth = 150
             handle.cam.elevation = -15
-        due = time.monotonic()
+        ticks = _Ticks(stop)
         while handle.is_running() and not stop.is_set():
             with handle.lock():
                 state.update()
@@ -195,9 +198,42 @@ def run(
             if on_frame is not None:
                 on_frame(model, state.data, state.sample)
             handle.sync()
-            due += FRAME_PERIOD
-            remaining = due - time.monotonic()
-            if remaining > 0:
-                stop.wait(remaining)
-            else:
-                due = time.monotonic()
+            ticks.wait()
+
+
+def run_headless(
+    model: mujoco.MjModel,
+    source: PoseSource,
+    *,
+    on_frame: FrameHook | None = None,
+    stop: threading.Event | None = None,
+) -> None:
+    """Pose the robot at the frame rate with no window, until `stop` is set.
+
+    The same posing as `run`, without overlay, ghost or keys; `on_frame` is where a headless viewer
+    renders its camera frames.
+    """
+    stop = stop or threading.Event()
+    state = ViewerState(model, source)
+    ticks = _Ticks(stop)
+    while not stop.is_set():
+        state.update()
+        if on_frame is not None:
+            on_frame(model, state.data, state.sample)
+        ticks.wait()
+
+
+class _Ticks:
+    """Sleeps to the next 1/60 s tick, on a fixed schedule; `stop` cuts the sleep short."""
+
+    def __init__(self, stop: threading.Event) -> None:
+        self._stop = stop
+        self._due = time.monotonic()
+
+    def wait(self) -> None:
+        self._due += FRAME_PERIOD
+        remaining = self._due - time.monotonic()
+        if remaining > 0:
+            self._stop.wait(remaining)
+        else:
+            self._due = time.monotonic()

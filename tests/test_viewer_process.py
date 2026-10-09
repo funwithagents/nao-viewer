@@ -1,4 +1,7 @@
+import os
 import socket
+import subprocess
+import sys
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -6,8 +9,17 @@ from dataclasses import dataclass
 import mujoco
 import numpy as np
 import pytest
+from mock_naoqi import MockNaoqi
 
-from nao_viewer import protocol
+from nao_viewer import (
+    NaoqiSettings,
+    NaoViewer,
+    NaoViewerConfig,
+    WorldSettings,
+    client,
+    protocol,
+    viewer_process,
+)
 from nao_viewer.model import NaoPose, PoseWriter, load_world
 from nao_viewer.source import Sample, TargetInfo
 from nao_viewer.viewer_process import OffscreenRenderer, RequestServer, main
@@ -269,3 +281,100 @@ def test_a_missing_scene_file_is_a_startup_error(
         capsys.readouterr().out.strip()
         == f"NAO_VIEWER_ERROR scene file not found: {missing}"
     )
+
+
+def test_a_headless_viewer_that_cannot_render_is_a_startup_error(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+):
+    def no_gl(model: mujoco.MjModel, renderer: OffscreenRenderer) -> None:
+        raise RuntimeError("no OpenGL context")
+
+    monkeypatch.setattr(viewer_process, "_check_offscreen", no_gl)
+    monkeypatch.setenv("MUJOCO_GL", "egl")
+    assert main(['{"mode": "sim", "headless": true}']) == 1
+    out = capsys.readouterr().out.strip()
+    assert out.startswith(
+        "NAO_VIEWER_ERROR a headless viewer cannot render offscreen with MUJOCO_GL=egl "
+        "(RuntimeError: no OpenGL context)"
+    )
+    assert "libegl1 libopengl0 libgl1-mesa-dri" in out
+
+
+# --- A real headless viewer process -------------------------------------------------
+
+_PROBE = """
+import mujoco
+model = mujoco.MjModel.from_xml_string("<mujoco><worldbody><geom size='.1'/></worldbody></mujoco>")
+renderer = mujoco.Renderer(model, 48, 64)
+renderer.update_scene(mujoco.MjData(model))
+renderer.render()
+"""
+
+
+def headless_config(url: str) -> NaoViewerConfig:
+    return NaoViewerConfig(
+        mode="sim",
+        headless=True,
+        naoqi=NaoqiSettings(url=url),
+        world=WorldSettings(scene="table", variant="placeholder"),
+    )
+
+
+@pytest.fixture(scope="module")
+def offscreen_gl() -> None:
+    """Skip unless this machine renders offscreen with the environment launch() gives a viewer."""
+    env = client._viewer_env(headless_config("tcp://127.0.0.1:9559")) or dict(
+        os.environ
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", _PROBE],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    if result.returncode != 0:
+        tail = result.stderr.strip().splitlines()[-1:] or ["no output"]
+        pytest.skip(
+            f"no offscreen OpenGL here ({tail[0]}); on Linux install libegl1 libopengl0 libgl1-mesa-dri"
+        )
+
+
+def wait_for_pose(viewer: NaoViewer, after: int = 0) -> int:
+    deadline = time.monotonic() + 10
+    while (seq := viewer.status().pose_seq) <= after:
+        assert time.monotonic() < deadline, "no pose from the mock NAOqi"
+        time.sleep(0.05)
+    return seq
+
+
+@pytest.mark.usefixtures("offscreen_gl")
+def test_a_headless_viewer_serves_frames_that_follow_the_robot(
+    mock_naoqi: tuple[str, MockNaoqi],
+):
+    url, mock = mock_naoqi
+    mock.set_pose({"HeadYaw": 0.0, "HeadPitch": 0.2})
+    with NaoViewer(headless_config(url)) as viewer:
+        seq = wait_for_pose(viewer)
+        status = viewer.status()
+        assert (status.mode, status.target, status.variant) == (
+            "sim",
+            "virtual",
+            "placeholder",
+        )
+        top = viewer.camera_frame("top", 640, 480)
+        before = viewer.camera_frame("bottom", 320, 240)
+        assert top.image.shape == (480, 640, 3) and before.image.shape == (240, 320, 3)
+        assert top.image.std() > 10 and before.image.std() > 10  # not blank
+        assert before.pose_seq >= seq
+
+        mock.set_pose({"HeadYaw": 0.8})
+        moved = viewer.camera_frame("bottom", 320, 240)
+        deadline = time.monotonic() + 5
+        while np.abs(moved.image.astype(int) - before.image.astype(int)).mean() <= 5:
+            assert time.monotonic() < deadline, "the frame did not turn with the head"
+            time.sleep(0.05)
+            moved = viewer.camera_frame("bottom", 320, 240)
+        assert moved.pose_seq > before.pose_seq
+    assert viewer.wait(timeout=5)  # close() ended the headless viewer process

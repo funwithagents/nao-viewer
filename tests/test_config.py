@@ -20,8 +20,9 @@ def config_error(data: Any) -> ConfigError:
 def test_defaults():
     config = NaoViewerConfig()
     assert NaoViewerConfig.from_dict({}) == config
-    assert (config.mode, config.naoqi.url, config.naoqi.rate_hz) == (
+    assert (config.mode, config.headless, config.naoqi.url, config.naoqi.rate_hz) == (
         "mirror",
+        False,
         "tcp://127.0.0.1:9559",
         50.0,
     )
@@ -58,12 +59,15 @@ def test_to_dict_round_trips_and_is_json():
     data = config.to_dict()
     assert data == {
         "mode": "sim",
+        "headless": False,
         "naoqi": {"url": "tcp://10.0.0.7:9600", "rate_hz": 30},
         "world": {"scene": "table", "variant": "placeholder"},
         "ghost": True,
         "launch_timeout_s": 12,
     }
     assert NaoViewerConfig.from_json(json.dumps(data)) == config
+    headless = NaoViewerConfig(mode="sim", headless=True)
+    assert NaoViewerConfig.from_dict(headless.to_dict()) == headless
 
 
 @pytest.mark.parametrize(
@@ -80,6 +84,10 @@ def test_to_dict_round_trips_and_is_json():
         ({"world": {"variant": "meshes"}}, "world.variant", "must be one of"),
         ({"world": {"scene": ""}}, "world.scene", "must not be empty"),
         ({"ghost": "yes"}, "ghost", "must be a boolean"),
+        ({"mode": "sim", "headless": 1}, "headless", "must be a boolean"),
+        ({"headless": True}, "headless", "requires mode 'sim'"),
+        ({"mode": "mirror", "headless": True}, "headless", "requires mode 'sim'"),
+        ({"mode": "sim", "headless": True, "ghost": True}, "ghost", "headless"),
         ({"launch_timeout_s": 0}, "launch_timeout_s", "positive, finite"),
     ],
 )
@@ -152,10 +160,11 @@ def test_example_files_load(path: Path):
     assert config.to_dict() == json.loads(path.read_text())  # every field written out
 
 
-def test_both_examples_exist():
+def test_the_examples_exist():
     assert {p.name for p in EXAMPLES.glob("*.json")} >= {
         "mirror.json",
         "sim-table.json",
+        "sim-headless.json",
     }
 
 

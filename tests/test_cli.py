@@ -29,7 +29,7 @@ def fake_viewer_process(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path
     monkeypatch.setattr(
         client,
         "_viewer_command",
-        lambda config: [sys.executable, str(FAKE_VIEWER), config],
+        lambda config: [sys.executable, str(FAKE_VIEWER), json.dumps(config.to_dict())],
     )
     received = tmp_path / "received.json"
     monkeypatch.setenv("NAO_FAKE_VIEWER_CONFIG", str(received))

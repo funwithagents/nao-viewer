@@ -16,3 +16,19 @@ def require_env(name: str) -> str:
     if not value:
         pytest.skip(f"{name} not set; skipping live test")
     return value
+
+
+def window_requested() -> bool:
+    """Whether this run opens its viewers with their windows (NAO_VIEWER_E2E_WINDOW), not headless."""
+    return os.environ.get("NAO_VIEWER_E2E_WINDOW", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def require_window() -> None:
+    """Skip the calling test in a headless run: it needs a viewer window."""
+    if not window_requested():
+        pytest.skip("needs a viewer window; set NAO_VIEWER_E2E_WINDOW=1 to run it")

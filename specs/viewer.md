@@ -37,6 +37,12 @@ Steps 1 and 2 live in a `ViewerState` class (posing, overlay texts, ghost geoms,
 
 `mj_step` is never called: the pose comes only from the source.
 
+### Headless loop
+
+`run_headless(model, source, *, on_frame=None, stop=None)` is the loop of a headless viewer ([api.md](api.md), Headless). It runs until `stop` is set, which is the only way out because there is no window. Each tick it calls `ViewerState.update()` (step 1), then `on_frame` (step 3), then sleeps to the next 1/60 s tick (step 4, without `sync`). There is no overlay and no ghost (step 2), and no key handling. Everything else is shared with `run` through `ViewerState`, so a pose reaches a camera frame the same way in both loops.
+
+`viewer.py` imports `mujoco.viewer` (and through it GLFW) inside `run` only, so a headless viewer process never loads the window stack.
+
 ### Status overlay (top-left)
 
 - Lines: target and URL (`nao-sim tcp://127.0.0.1:9559`), NAOqi version, update rate (`source.rate()`, Hz), and data age in ms. Before the first connection (`source.info` is `None`) the first line reads `connecting tcp://…`.

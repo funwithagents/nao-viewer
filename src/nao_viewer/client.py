@@ -5,6 +5,7 @@ Standard library and numpy only: importing nao_viewer loads neither mujoco nor q
 
 import json
 import logging
+import os
 import queue
 import socket
 import subprocess
@@ -68,9 +69,9 @@ class ViewerStatus:
     data_age: float | None  # s; None before the first sample
 
 
-def _viewer_command(config: str) -> list[str]:
+def _viewer_command(config: NaoViewerConfig) -> list[str]:
     """The command running the viewer process (tests replace it with a fake viewer process)."""
-    if sys.platform == "darwin":
+    if sys.platform == "darwin" and not config.headless:
         # MuJoCo's window must run on the main thread of an mjpython process on macOS.
         python = Path(sys.executable).with_name("mjpython")
         if not python.exists():
@@ -80,7 +81,23 @@ def _viewer_command(config: str) -> list[str]:
             )
     else:
         python = Path(sys.executable)
-    return [str(python), "-m", "nao_viewer.viewer_process", config]
+    return [
+        str(python),
+        "-m",
+        "nao_viewer.viewer_process",
+        json.dumps(config.to_dict()),
+    ]
+
+
+def _viewer_env(config: NaoViewerConfig) -> dict[str, str] | None:
+    """The viewer process's environment, or None to inherit ours.
+
+    A headless viewer on Linux renders through EGL unless MUJOCO_GL says otherwise: with Mesa's
+    software device it needs no display and no GPU.
+    """
+    if not config.headless or sys.platform != "linux" or "MUJOCO_GL" in os.environ:
+        return None
+    return {**os.environ, "MUJOCO_GL": "egl"}
 
 
 class _ProcessOutput:
@@ -189,11 +206,11 @@ class NaoViewer:
         return self._config
 
     def launch(self) -> None:
-        """Start the viewer process; return once its window is up.
+        """Start the viewer process; return once its window is up (headless: once it renders).
 
         It returns even if NAOqi is unreachable: the viewer keeps reconnecting. Raises LaunchError
-        if the viewer process can't start (missing scene file or meshes, no display, timeout), and
-        RuntimeError if this viewer is already running.
+        if the viewer process can't start (missing scene file or meshes, no display, no offscreen
+        OpenGL for a headless viewer, timeout), and RuntimeError if this viewer is already running.
         """
         if self.running:
             raise RuntimeError(
@@ -202,7 +219,8 @@ class NaoViewer:
         self.close()  # drop what's left of a previous run
         timeout = self._config.launch_timeout_s
         process = subprocess.Popen(
-            _viewer_command(json.dumps(self._config.to_dict())),
+            _viewer_command(self._config),
+            env=_viewer_env(self._config),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

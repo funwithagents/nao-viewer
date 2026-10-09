@@ -28,7 +28,7 @@ A small `nao-viewer` command for one-shot tools that don't fit in application co
 - `check-model`'s `URL` is `tcp://host:port` or a bare host (port 9559).
 - `fetch-meshes` arrives with the implementation of [meshes.md](meshes.md). Until then the command doesn't exist.
 - `check-model` prints its report ([check_model.md](check_model.md), `CheckReport.format()`) to stdout.
-- `view` returns when the window closes. Ctrl-C closes the viewer and exits with 130.
+- `view` returns when the window closes. A headless config has no window, so `view` runs until the viewer exits or Ctrl-C. Ctrl-C closes the viewer and exits with 130.
 - `-v`/`-q` (before the command) set the log level: INFO by default, DEBUG with `-v`, WARNING with `-q`. Logs go to stderr. Errors are one line on stderr, `nao-viewer: error: <message>`, with no traceback.
 - Exit codes: 0 success, 1 failure (`check-model` over tolerance, a refused or failed fetch, a viewer that couldn't launch), 2 usage error (argparse's own, or a `ConfigError`, whose message names the key).
 

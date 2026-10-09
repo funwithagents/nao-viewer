@@ -1,6 +1,6 @@
 {
   "mode": "sim",
-  "headless": false,
+  "headless": true,
   "naoqi": { "url": "tcp://127.0.0.1:9559", "rate_hz": 50 },
   "world": { "scene": "table", "variant": "auto" },
   "ghost": false,

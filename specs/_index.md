@@ -9,13 +9,13 @@ nao-viewer is the MuJoCo window for NAO, one of the three packages of the NAO to
 | Spec | Description | Status |
 |---|---|---|
 | [project.md](project.md) | Project structure and tooling: Python version, packaging with uv, layout conventions | Implemented |
-| [testing.md](testing.md) | Testing strategy: two-tier `tests/`/`tests-e2e/` split, in-process mock NAOqi, live tier gated on `NAOQI_URL` | Implemented |
+| [testing.md](testing.md) | Testing strategy: two-tier `tests/`/`tests-e2e/` split, in-process mock NAOqi, a real headless viewer in the fast tier, live tier gated on `NAOQI_URL` and headless unless `NAO_VIEWER_E2E_WINDOW` | Implemented |
 | [model.md](model.md) | The NAO MJCF model: committed `nao.xml` from the URDF, joints, couplings, sensors, cameras, effector sites, placeholder visuals; scenes; `NaoPose` and `PoseWriter` | Implemented |
 | [meshes.md](meshes.md) | `fetch-meshes` license-gated install and conversion, and loading Aldebaran's meshes in place of the placeholder visuals | Draft |
 | [source.md](source.md) | Pose sources: `connect()` with retries, `NaoqiSource` polling NAOqi at 50 Hz with reconnect and target identification | Implemented |
-| [viewer.md](viewer.md) | The render loop on `mujoco.viewer.launch_passive`: pose → `mj_kinematics` at 60 Hz, status overlay, ghost, attribution | Implemented |
-| [config.md](config.md) | `NaoViewerConfig`: mode, NAOqi, world, ghost; `from_dict`/`from_json`/`from_json_file`, `to_dict`, `ConfigError` naming the key; example files | Implemented |
-| [api.md](api.md) | Public API: `NaoViewer(config)` with `launch()` starting the viewer in its own process (`mjpython` on macOS), `camera_frame`, `status`, `wait`, `close`; loopback protocol; bundled scenes | Implemented |
+| [viewer.md](viewer.md) | The render loop on `mujoco.viewer.launch_passive`: pose → `mj_kinematics` at 60 Hz, status overlay, ghost, attribution; the windowless headless loop | Implemented |
+| [config.md](config.md) | `NaoViewerConfig`: mode, headless, NAOqi, world, ghost; `from_dict`/`from_json`/`from_json_file`, `to_dict`, `ConfigError` naming the key; example files | Implemented |
+| [api.md](api.md) | Public API: `NaoViewer(config)` with `launch()` starting the viewer in its own process (`mjpython` on macOS), `camera_frame`, `status`, `wait`, `close`; headless sim with offscreen rendering (Mesa's EGL on Linux); loopback protocol; bundled scenes | Implemented |
 | [check_model.md](check_model.md) | `check-model`: forward-kinematics cross-check against NAOqi, 2 mm / 1° | Implemented |
 | [cli.md](cli.md) | Thin `nao-viewer` command: `view --config`, `check-model`, `fetch-meshes` | Implemented |
 

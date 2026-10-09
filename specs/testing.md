@@ -53,11 +53,12 @@ nao-viewer owns a small mock rather than borrowing one from nao-bridge, which si
 
 ## Testing the viewer process
 
-The real viewer process (a MuJoCo window, OpenGL, a subprocess) only runs in the live tier. The fast tier tests both sides of the protocol without it:
+A windowed viewer process (a MuJoCo window, OpenGL, a subprocess) only runs in the live tier. The fast tier tests both sides of the protocol without it, and runs one real headless viewer process:
 
 - **Client side (`tests/`)**: `client.py` is tested against a **fake viewer process** (`tests/fake_viewer_process.py`): a small script speaking the protocol with canned frames and scripted failures, which `NaoViewer.launch()` starts as a real subprocess in place of `viewer_process` (tests swap the command it runs). Being a real subprocess, it exercises the ready line, stderr relaying, early exits and timeouts as well as the handshake, message encoding, `ModeError` on the client side, `ViewerClosed`, and calls from several threads.
 - **Viewer-process side (`tests/`)**: the viewer process's request handling (queueing, mirror refusing `camera_frame`, `status`) is called directly with the render function stubbed. No subprocess and no OpenGL.
-- **Live (`tests-e2e/`)**: a `NaoViewer` in sim mode on `NAOQI_URL` starts the real viewer process with its window, on a developer machine with a display. The test fetches real frames, checks they aren't blank, and checks that they change when the head moves.
+- **Real headless viewer (`tests/`)**: a headless sim `NaoViewer` on the mock NAOqi starts the real viewer process (no fake), waits for a pose, and checks that the frames it returns aren't blank and change when the mock's head turns. It needs no display, but it does need an offscreen OpenGL backend (Mesa's EGL on Linux, see [api.md](api.md), Headless). A session fixture checks for one in a subprocess, with the environment `launch()` would give the viewer, and **skips** these tests when there is none. A plain Linux image without `libegl1 libopengl0 libgl1-mesa-dri` therefore skips them instead of failing.
+- **Live (`tests-e2e/`)**: a `NaoViewer` in sim mode on `NAOQI_URL` starts the real viewer process. The test fetches real frames, checks they aren't blank, and checks that they change when the head moves. Whether the viewers the run opens are headless or windowed is the run's choice, not the test's (see "Live tier: headless or windowed" below).
 
 ## Test isolation
 
@@ -67,6 +68,19 @@ If the package holds process-global or singleton state, both tiers carry an iden
 
 A live test needs a NAOqi to talk to, and it must **skip, never fail**, when none is configured. That way anyone without a robot or a container, including CI, can run the tier without breaking it. The endpoint comes from the `NAOQI_URL` environment variable (for example `tcp://127.0.0.1:9559` for nao-sim, `tcp://<robot>:9559` for a real NAO). `tests-e2e/support.require_env(NAME)` returns the variable or calls `pytest.skip(...)` when it is unset. Nothing about the endpoint is committed.
 
+## Live tier: headless or windowed
+
+One run opens its viewers one way, chosen by an environment variable, as reachy-mini-bridge's live tier does:
+
+| Run | Command | Viewers |
+|---|---|---|
+| headless (default) | `NAOQI_URL=… uv run pytest tests-e2e -rs` | sim tests run headless and need no display, which is what CI runs. The mirror test **skips**, because mirror mode has no headless form. |
+| windowed | `NAO_VIEWER_E2E_WINDOW=1 NAOQI_URL=… uv run pytest tests-e2e -rs` | every viewer opens its window (under `mjpython` on macOS), the mirror test included. The run needs a display and an unlocked session. |
+
+- `support.window_requested()` reads `NAO_VIEWER_E2E_WINDOW`: `1`, `true`, `yes` or `on` (any case) mean windowed, and anything else, including unset, means headless. `support.require_window()` skips a test that only exists with a window, naming the variable.
+- **A windowed run without a display fails, it does not skip.** The run asked for windows, so a window that can't open is a real failure.
+- The live tier talks to a real NAOqi, never to the mock. The fast tier already runs a real headless viewer against the mock, and `check-model` against the mock would compare the model with itself: the mock computes its effectors from `nao.xml`. What only the live tier checks is the real NAOqi API, target identification, the model's kinematics, and the window.
+
 ## Tooling
 
 - **`pytest`** is the runner; **`ruff`** lints/formats; **`pyright`** (`standard` mode) type-checks. All three are the gate after any change — lint, type check, and tests must pass before work is considered done (see [AGENTS.md](../AGENTS.md), "Verification").
@@ -74,4 +88,4 @@ A live test needs a NAOqi to talk to, and it must **skip, never fail**, when non
 
 ## Open questions
 
-1. **CI wiring.** Nothing here sets up continuous integration. The default `tests/` tier is CI-ready (deterministic, no credentials), and the e2e tier is designed to skip cleanly when keys are absent — but actually running either on a hosted runner is unbuilt. Today all testing is a local, manual command.
+1. **CI wiring.** Nothing here sets up continuous integration. The default `tests/` tier is CI-ready (deterministic, no credentials; install `libegl1 libopengl0 libgl1-mesa-dri` on Linux to run the headless viewer tests instead of skipping them), and the e2e tier is designed to skip cleanly when keys are absent — but actually running either on a hosted runner is unbuilt. Today all testing is a local, manual command.

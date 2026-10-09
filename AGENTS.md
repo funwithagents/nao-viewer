@@ -77,7 +77,7 @@ The mapping is **many-to-many**: a file can be governed by several specs, so the
 
 ### Live/e2e tests
 
-Some tests talk to a live NAOqi: a real robot, or a nao-sim container started separately. They live in `tests-e2e/`, separate from `tests/`, so the default `uv run pytest` never runs them. The normal dev loop uses the in-process mock NAOqi instead (see [specs/testing.md](specs/testing.md)). Run the live tier explicitly with `NAOQI_URL=tcp://<host>:9559 uv run pytest tests-e2e`. Without `NAOQI_URL`, every live test **skips**. Never import nao-sim or nao-bridge from tests: nao-sim depends on nao-viewer, not the other way round.
+Some tests talk to a live NAOqi: a real robot, or a nao-sim container started separately. They live in `tests-e2e/`, separate from `tests/`, so the default `uv run pytest` never runs them. The normal dev loop uses the in-process mock NAOqi instead (see [specs/testing.md](specs/testing.md)). Run the live tier explicitly with `NAOQI_URL=tcp://<host>:9559 uv run pytest tests-e2e`. Without `NAOQI_URL`, every live test **skips**. Viewers open headless by default; `NAO_VIEWER_E2E_WINDOW=1` opens their windows instead (needs a display), and the mirror test runs only then. Never import nao-sim or nao-bridge from tests: nao-sim depends on nao-viewer, not the other way round.
 
 ## Implementation plans
 

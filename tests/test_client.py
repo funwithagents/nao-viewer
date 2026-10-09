@@ -33,7 +33,7 @@ def fake_viewer_process(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         client,
         "_viewer_command",
-        lambda config: [sys.executable, str(FAKE_VIEWER), config],
+        lambda config: [sys.executable, str(FAKE_VIEWER), json.dumps(config.to_dict())],
     )
 
 
@@ -288,6 +288,48 @@ def test_missing_mjpython_on_macos_is_a_launch_error(
     monkeypatch.setattr(sys, "executable", str(tmp_path / "python"))
     with pytest.raises(LaunchError, match="mjpython"):
         NaoViewer(MIRROR).launch()
+
+
+HEADLESS = NaoViewerConfig(mode="sim", headless=True, naoqi=NaoqiSettings(url=URL))
+
+
+def test_a_headless_viewer_needs_no_mjpython_on_macos(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    monkeypatch.undo()
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(
+        sys, "executable", str(tmp_path / "python")
+    )  # no mjpython beside it
+    command = client._viewer_command(HEADLESS)
+    assert command[:3] == [str(tmp_path / "python"), "-m", "nao_viewer.viewer_process"]
+    assert NaoViewerConfig.from_json(command[3]) == HEADLESS
+
+
+def test_a_headless_viewer_on_linux_renders_through_egl_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.delenv("MUJOCO_GL", raising=False)
+    monkeypatch.setenv("NAO_SOMETHING", "kept")
+    env = client._viewer_env(HEADLESS)
+    assert env is not None
+    assert env["MUJOCO_GL"] == "egl" and env["NAO_SOMETHING"] == "kept"
+    assert client._viewer_env(SIM) is None  # a window: the environment as it is
+
+
+def test_the_callers_mujoco_gl_wins(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setenv("MUJOCO_GL", "osmesa")
+    assert (
+        client._viewer_env(HEADLESS) is None
+    )  # inherited, so osmesa reaches the viewer
+
+
+def test_macos_keeps_mujocos_own_offscreen_backend(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.delenv("MUJOCO_GL", raising=False)
+    assert client._viewer_env(HEADLESS) is None
 
 
 def test_importing_nao_viewer_loads_neither_mujoco_nor_qi():

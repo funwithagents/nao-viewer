@@ -223,6 +223,7 @@ class NaoViewerConfig(JsonConfig):
     """A viewer: its mode, the NAOqi it watches, its world and options (specs/config.md)."""
 
     mode: Mode = "mirror"
+    headless: bool = False  # no window, offscreen rendering only (sim mode)
     naoqi: NaoqiSettings = field(default_factory=NaoqiSettings)
     world: WorldSettings = field(default_factory=WorldSettings)
     ghost: bool = False
@@ -235,6 +236,16 @@ class NaoViewerConfig(JsonConfig):
                 key="mode",
             )
         _require_positive(self.launch_timeout_s, "launch_timeout_s")
+        if self.headless and self.mode == "mirror":
+            raise ConfigError(
+                "requires mode 'sim': a headless mirror has nothing to show",
+                key="headless",
+            )
+        if self.headless and self.ghost:
+            raise ConfigError(
+                "is drawn only in the window, and a headless viewer has none",
+                key="ghost",
+            )
 
     @classmethod
     def parse(cls, data: Any, path: str) -> Self:
@@ -243,6 +254,7 @@ class NaoViewerConfig(JsonConfig):
             data,
             path,
             mode=_as_choice(MODES),
+            headless=_as_bool,
             naoqi=NaoqiSettings.parse,
             world=WorldSettings.parse,
             ghost=_as_bool,

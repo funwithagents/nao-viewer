@@ -1,12 +1,16 @@
+import subprocess
+import sys
+import threading
 import time
 from dataclasses import dataclass, field
 
 import mujoco
 import pytest
 
+from nao_viewer import NaoViewerConfig, client
 from nao_viewer.model import NaoPose, load_world
 from nao_viewer.source import Sample, TargetInfo
-from nao_viewer.viewer import ATTRIBUTION, KEY_TOGGLE_STATUS, ViewerState
+from nao_viewer.viewer import ATTRIBUTION, KEY_TOGGLE_STATUS, ViewerState, run_headless
 
 UPRIGHT = ((0.0, 0.0, 0.3332), (1.0, 0.0, 0.0, 0.0))
 RIGHT_ARM_BODIES = {"RShoulder", "RBicep", "RElbow", "RForeArm", "r_wrist"}
@@ -182,3 +186,53 @@ def test_no_ghost_without_commanded_angles_or_when_disabled(world: mujoco.MjMode
     plain.update()
     plain.draw_ghost(scene)
     assert scene.ngeom == 0
+
+
+def test_run_headless_poses_the_model_each_frame_until_stopped(world: mujoco.MjModel):
+    source = FakeSource()
+    stop = threading.Event()
+    frames: list[tuple[int, float]] = []
+    pushed_second = threading.Event()
+
+    def on_frame(model: mujoco.MjModel, data: mujoco.MjData, sample: Sample | None):
+        yaw = float(data.qpos[model.joint("HeadYaw").qposadr[0]])
+        frames.append((sample.seq if sample is not None else 0, yaw))
+        if len(frames) == 3:
+            source.push({"HeadYaw": 0.4})
+        if len(frames) == 6:
+            source.push({"HeadYaw": -0.2})
+            pushed_second.set()
+        if len(frames) >= 9:
+            stop.set()
+
+    loop = threading.Thread(
+        target=run_headless,
+        args=(world, source),
+        kwargs={"on_frame": on_frame, "stop": stop},
+    )
+    started = time.monotonic()
+    loop.start()
+    loop.join(timeout=5)
+    assert not loop.is_alive(), "run_headless did not return once stopped"
+    assert pushed_second.is_set()
+    assert frames[0] == (0, 0.0)  # no pose yet
+    assert frames[3] == (1, pytest.approx(0.4)) and frames[6] == (
+        2,
+        pytest.approx(-0.2),
+    )
+    assert time.monotonic() - started >= 8 / 60 * 0.9  # paced at the frame rate
+
+
+def test_a_headless_viewer_process_does_not_load_the_window_stack():
+    # With the environment launch() gives a headless viewer: on Linux, MuJoCo's default
+    # backend is GLFW itself, which MUJOCO_GL=egl replaces.
+    headless = NaoViewerConfig(mode="sim", headless=True)
+    code = "import sys, nao_viewer.viewer_process; print(sorted(m for m in ('glfw', 'mujoco.viewer') if m in sys.modules))"
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        env=client._viewer_env(headless),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == "[]"

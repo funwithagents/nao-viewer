@@ -1,10 +1,13 @@
-"""The real viewer process and window against a live NAOqi (needs NAOQI_URL and a display)."""
+"""The real viewer process against a live NAOqi (needs NAOQI_URL).
+
+Viewers open headless unless NAO_VIEWER_E2E_WINDOW=1, which opens their windows (needs a display).
+"""
 
 import time
 
 import numpy as np
 import qi
-from support import require_env
+from support import require_env, require_window, window_requested
 
 from nao_viewer import NaoViewer, NaoViewerConfig
 
@@ -33,7 +36,12 @@ def _move_head(url: str, yaw: float) -> None:
 def test_sim_mode_serves_real_camera_frames():
     url = require_env("NAOQI_URL")
     config = NaoViewerConfig.from_dict(
-        {"mode": "sim", "naoqi": {"url": url}, "world": {"scene": "table"}}
+        {
+            "mode": "sim",
+            "headless": not window_requested(),
+            "naoqi": {"url": url},
+            "world": {"scene": "table"},
+        }
     )
     with NaoViewer(config) as viewer:
         deadline = time.monotonic() + 10
@@ -63,6 +71,7 @@ def test_sim_mode_serves_real_camera_frames():
 
 def test_mirror_mode_opens_and_reports_status():
     url = require_env("NAOQI_URL")
+    require_window()
     with NaoViewer.from_dict({"naoqi": {"url": url}}) as viewer:
         assert viewer.config.mode == "mirror"
         assert viewer.status().url == url

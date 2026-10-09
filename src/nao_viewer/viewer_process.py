@@ -1,11 +1,12 @@
 """The viewer process: `python -m nao_viewer.viewer_process <config JSON>` (on macOS, under mjpython).
 
-Started by nao_viewer.launch(). It loads the world, polls NAOqi, owns the window, and answers its
-caller over one loopback connection (protocol.py). It exits when that connection closes, when the
-window is closed, or on `stop`.
+Started by nao_viewer.launch(). It loads the world, polls NAOqi, owns the window (or, headless,
+renders offscreen only), and answers its caller over one loopback connection (protocol.py). It
+exits when that connection closes, when the window is closed, or on `stop`.
 """
 
 import logging
+import os
 import queue
 import socket
 import sys
@@ -24,7 +25,7 @@ from nao_viewer import protocol
 from nao_viewer.config import ConfigError, NaoViewerConfig, is_scene_path
 from nao_viewer.model import load_world, resolve_variant
 from nao_viewer.source import NaoqiSource, PoseSource, Sample
-from nao_viewer.viewer import ATTRIBUTION, run
+from nao_viewer.viewer import ATTRIBUTION, run, run_headless
 
 _log = logging.getLogger(__name__)
 
@@ -33,6 +34,23 @@ MAX_IMAGE_SIDE = 4096
 
 # Renders `camera` at width x height from the posed model: an (height, width, 3) uint8 RGB image.
 RenderFunction = Callable[[mujoco.MjModel, mujoco.MjData, str, int, int], np.ndarray]
+
+
+def _describe(exc: BaseException) -> str:
+    """The exception's text; PyOpenGL errors can fail `str()`, so fall back to its type."""
+    try:
+        text = str(exc)
+    except Exception:  # noqa: BLE001  # describing an error must not raise another
+        text = ""
+    return f"{type(exc).__name__}: {text}" if text else type(exc).__name__
+
+
+def _check_offscreen(model: mujoco.MjModel, renderer: "OffscreenRenderer") -> None:
+    """Render one frame, so a headless viewer that can't render fails at launch, not later.
+
+    640x480 is a common request size, so the renderer it creates is kept.
+    """
+    renderer(model, mujoco.MjData(model), CAMERAS["top"], 640, 480)
 
 
 def _nao_viewer_version() -> str:
@@ -262,9 +280,23 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, FileNotFoundError) as exc:
         return fail(str(exc))
 
+    renderer = OffscreenRenderer() if mode == "sim" else None
+    if config.headless:
+        assert renderer is not None  # the config allows headless in sim mode only
+        try:
+            _check_offscreen(model, renderer)
+        except Exception as exc:  # noqa: BLE001  # GL backends fail in many ways; all mean "can't render"
+            renderer.close()
+            gl = os.environ.get("MUJOCO_GL")
+            backend = f"MUJOCO_GL={gl}" if gl else "MuJoCo's default OpenGL backend"
+            return fail(
+                f"a headless viewer cannot render offscreen with {backend} "
+                f"({_describe(exc)}); on Linux install Mesa's EGL (libegl1 libopengl0 libgl1-mesa-dri on "
+                "Debian/Ubuntu), or set MUJOCO_GL=osmesa with libosmesa6"
+            )
+
     listener = socket.create_server(("127.0.0.1", 0))
     source = NaoqiSource(url, rate_hz=config.naoqi.rate_hz, commanded=config.ghost)
-    renderer = OffscreenRenderer() if mode == "sim" else None
     server = RequestServer(
         listener,
         mode=mode,
@@ -275,17 +307,20 @@ def main(argv: list[str] | None = None) -> int:
         accept_timeout=config.launch_timeout_s,
     )
     try:
-        run(
-            model,
-            source,
-            ghost=config.ghost,
-            attribution=ATTRIBUTION if variant == "aldebaran" else None,
-            on_frame=server.on_frame,
-            stop=server.stop,
-        )
+        if config.headless:
+            run_headless(model, source, on_frame=server.on_frame, stop=server.stop)
+        else:
+            run(
+                model,
+                source,
+                ghost=config.ghost,
+                attribution=ATTRIBUTION if variant == "aldebaran" else None,
+                on_frame=server.on_frame,
+                stop=server.stop,
+            )
     except Exception as exc:
         if not server.ready:  # the window never opened (no display, no mjpython)
-            return fail(f"the viewer window could not open: {exc}")
+            return fail(f"the viewer window could not open: {_describe(exc)}")
         raise
     finally:
         server.close()
