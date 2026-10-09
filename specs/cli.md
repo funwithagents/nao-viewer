@@ -20,17 +20,18 @@ A small `nao-viewer` command for one-shot tools that don't fit in application co
 
 | Command | Does | Spec |
 |---|---|---|
-| `nao-viewer view URL [--mode mirror\|sim] [--scene S] [--ghost] [--variant auto\|placeholder\|aldebaran]` | Calls `nao_viewer.launch(...)` and waits until the window closes | [api.md](api.md) |
+| `nao-viewer view [--config PATH]` | Builds a `NaoViewer` from the config file (the default config without one), launches it and waits until the window closes | [api.md](api.md), [config.md](config.md) |
 | `nao-viewer check-model URL [--samples N] [--seed N] [--tolerance-mm X] [--tolerance-deg X] [--allow-real]` | Forward-kinematics check | [check_model.md](check_model.md) |
 | `nao-viewer fetch-meshes [--installer PATH]` | License prompt, mesh install and conversion (interactive) | [meshes.md](meshes.md) |
 
-- `URL` is `tcp://host:port` or a bare host (port 9559).
+- `view` takes its settings from a config file only, as nao-bridge's servers do: the mode, NAOqi URL, scene, variant and ghost live in the file ([config.md](config.md), with ready-made files in `examples/configs/`), not in flags. Without `--config` it opens the default config: mirror mode on a local NAOqi, empty scene.
+- `check-model`'s `URL` is `tcp://host:port` or a bare host (port 9559).
 - `-v`/`-q` set the log level; logs go to stderr.
-- Exit codes: 0 success, 1 failure (`check-model` over tolerance, a refused or failed fetch), 2 usage error (argparse's own).
+- Exit codes: 0 success, 1 failure (`check-model` over tolerance, a refused or failed fetch, a viewer that couldn't launch), 2 usage error (argparse's own, or a `ConfigError`, whose message names the key).
 
 ### Entry point
 
-`[project.scripts] nao-viewer = "nao_viewer.cli:main"`. `view` goes through the public API, so the `mjpython` handling lives in one place ([api.md](api.md), Viewer process) and the CLI process itself never needs `mjpython`.
+`[project.scripts] nao-viewer = "nao_viewer.cli:main"`. `view` goes through the public API (`NaoViewer`), so the `mjpython` handling lives in one place ([api.md](api.md), Viewer process) and the CLI process itself never needs `mjpython`.
 
 ### Structure
 

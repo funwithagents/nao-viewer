@@ -1,4 +1,4 @@
-"""The caller's side: `launch()` starts a viewer process and returns a `Viewer` handle.
+"""The caller's side: a `NaoViewer`, built from a config, starts and drives a viewer process.
 
 Standard library and numpy only: importing nao_viewer loads neither mujoco nor qi.
 """
@@ -19,6 +19,7 @@ from typing import IO, Any, Literal, Self
 import numpy as np
 
 from nao_viewer import protocol
+from nao_viewer.config import NaoViewerConfig
 
 _process_log = logging.getLogger("nao_viewer.viewer_process")
 _LEVELS = {
@@ -32,9 +33,7 @@ _STDERR_TAIL_LINES = 50
 _STOP_TIMEOUT = 5.0  # s for the viewer process to exit after `stop`
 _KILL_TIMEOUT = 2.0
 
-Mode = Literal["mirror", "sim"]
 Camera = Literal["top", "bottom"]
-Variant = Literal["auto", "placeholder", "aldebaran"]
 
 
 class LaunchError(RuntimeError):
@@ -151,101 +150,106 @@ def _with_stderr(message: str, output: _ProcessOutput) -> str:
     return f"{message}\n--- viewer process stderr ---\n{tail}" if tail else message
 
 
-def launch(
-    naoqi_url: str,
-    *,
-    mode: Mode = "mirror",
-    scene: str | Path | None = None,
-    variant: Variant = "auto",
-    ghost: bool = False,
-    rate_hz: float = 50,
-    timeout: float = 30.0,
-) -> "Viewer":
-    """Open a viewer on the NAOqi at `naoqi_url` in its own process; return once its window is up.
+@dataclass
+class _Running:
+    """A launched viewer process and the connection to it."""
 
-    It returns even if NAOqi is unreachable: the viewer keeps reconnecting. Raises LaunchError if
-    the viewer process can't start (unknown scene, missing meshes, no display, timeout).
+    process: subprocess.Popen[str]
+    connection: socket.socket | None
+    output: _ProcessOutput
+
+
+class NaoViewer:
+    """A viewer on a NAO, built from a `NaoViewerConfig`; `launch()` opens its window.
+
+    The constructor has no side effects. One NaoViewer is one window: `launch()` again after the
+    window was closed opens a new one. Calls from several threads are serialized.
     """
-    if mode not in ("mirror", "sim"):
-        raise ValueError(f"unknown mode {mode!r}; expected 'mirror' or 'sim'")
-    config = json.dumps(
-        {
-            "url": naoqi_url,
-            "mode": mode,
-            "scene": str(scene) if scene is not None else None,
-            "variant": variant,
-            "ghost": ghost,
-            "rate_hz": rate_hz,
-            "timeout": timeout,
-        }
-    )
-    process = subprocess.Popen(
-        _viewer_command(config),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1,
-    )
-    output = _ProcessOutput(process)
-    try:
-        line = output.protocol_line.get(timeout=timeout)
-    except queue.Empty:
-        _stop_process(process, grace=0)
-        raise LaunchError(
-            _with_stderr(
-                f"the viewer process wasn't ready within {timeout:g} s", output
-            )
-        ) from None
-    if line is None or not line.startswith(protocol.READY_PREFIX):
-        _stop_process(process, grace=_KILL_TIMEOUT)
-        if line is None:
-            message = f"the viewer process exited (code {process.returncode}) before it was ready"
-        else:
-            message = line.removeprefix(protocol.ERROR_PREFIX).strip()
-        raise LaunchError(_with_stderr(message, output))
 
-    fields = dict(field.split("=", 1) for field in line.split()[1:])
-    connection = socket.create_connection(
-        ("127.0.0.1", int(fields["port"])), timeout=timeout
-    )
-    connection.settimeout(None)
-    viewer = Viewer(mode, process, connection, output)
-    try:
-        hello, _ = viewer._request("hello")
-    except (ViewerClosed, RuntimeError) as exc:
-        viewer.close()
-        raise LaunchError(
-            _with_stderr(f"the viewer process didn't answer hello: {exc}", output)
-        ) from exc
-    if hello.get("protocol") != protocol.PROTOCOL:
-        viewer.close()
-        raise LaunchError(
-            f"the viewer process speaks protocol {hello.get('protocol')}, not {protocol.PROTOCOL}"
-        )
-    return viewer
-
-
-class Viewer:
-    """A handle on a running viewer process. Calls from several threads are serialized."""
-
-    def __init__(
-        self,
-        mode: Mode,
-        process: subprocess.Popen[str],
-        connection: socket.socket,
-        output: _ProcessOutput,
-    ) -> None:
-        self.mode: Mode = mode
-        self._process = process
-        self._connection: socket.socket | None = connection
-        self._output = output
+    def __init__(self, config: NaoViewerConfig | None = None) -> None:
+        self._config = config if config is not None else NaoViewerConfig()
+        self._running: _Running | None = None
         self._lock = threading.Lock()
         self._next_id = 0
 
+    @classmethod
+    def from_dict(cls, data: Any) -> Self:
+        return cls(NaoViewerConfig.from_dict(data))
+
+    @classmethod
+    def from_json(cls, text: str) -> Self:
+        return cls(NaoViewerConfig.from_json(text))
+
+    @classmethod
+    def from_json_file(cls, path: str | Path) -> Self:
+        return cls(NaoViewerConfig.from_json_file(path))
+
+    @property
+    def config(self) -> NaoViewerConfig:
+        return self._config
+
+    def launch(self) -> None:
+        """Start the viewer process; return once its window is up.
+
+        It returns even if NAOqi is unreachable: the viewer keeps reconnecting. Raises LaunchError
+        if the viewer process can't start (missing scene file or meshes, no display, timeout), and
+        RuntimeError if this viewer is already running.
+        """
+        if self.running:
+            raise RuntimeError(
+                "this viewer is already running; close() it first, or use another NaoViewer"
+            )
+        self.close()  # drop what's left of a previous run
+        timeout = self._config.launch_timeout_s
+        process = subprocess.Popen(
+            _viewer_command(json.dumps(self._config.to_dict())),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+        output = _ProcessOutput(process)
+        try:
+            line = output.protocol_line.get(timeout=timeout)
+        except queue.Empty:
+            _stop_process(process, grace=0)
+            raise LaunchError(
+                _with_stderr(
+                    f"the viewer process wasn't ready within {timeout:g} s", output
+                )
+            ) from None
+        if line is None or not line.startswith(protocol.READY_PREFIX):
+            _stop_process(process, grace=_KILL_TIMEOUT)
+            if line is None:
+                message = f"the viewer process exited (code {process.returncode}) before it was ready"
+            else:
+                message = line.removeprefix(protocol.ERROR_PREFIX).strip()
+            raise LaunchError(_with_stderr(message, output))
+
+        fields = dict(field.split("=", 1) for field in line.split()[1:])
+        connection = socket.create_connection(
+            ("127.0.0.1", int(fields["port"])), timeout=timeout
+        )
+        connection.settimeout(None)
+        with self._lock:
+            self._running = _Running(process, connection, output)
+        try:
+            hello, _ = self._request("hello")
+        except (ViewerClosed, RuntimeError) as exc:
+            self.close()
+            raise LaunchError(
+                _with_stderr(f"the viewer process didn't answer hello: {exc}", output)
+            ) from exc
+        if hello.get("protocol") != protocol.PROTOCOL:
+            self.close()
+            raise LaunchError(
+                f"the viewer process speaks protocol {hello.get('protocol')}, not {protocol.PROTOCOL}"
+            )
+
     def camera_frame(self, camera: Camera, width: int, height: int) -> CameraFrame:
         """Render what a head camera sees in the simulated world (sim mode only)."""
-        if self.mode != "sim":
+        if self._config.mode != "sim":
             raise ModeError(
                 "camera_frame is only available in sim mode; a real robot's cameras are served by ALVideoDevice"
             )
@@ -266,31 +270,40 @@ class Viewer:
         )
 
     def wait(self, timeout: float | None = None) -> bool:
-        """Wait for the viewer to exit (its window closed); True once it has."""
+        """Wait for the viewer to exit (its window closed); True once it has, or if never launched."""
+        running = self._running
+        if running is None:
+            return True
         try:
-            self._process.wait(timeout)
+            running.process.wait(timeout)
         except subprocess.TimeoutExpired:
             return False
         return True
 
     @property
     def running(self) -> bool:
-        return self._process.poll() is None
+        running = self._running
+        return running is not None and running.process.poll() is None
 
     def close(self) -> None:
-        """Stop the viewer: ask it to exit, then terminate it if it doesn't within 5 s."""
+        """Stop the viewer: ask it to exit, then terminate it if it doesn't within 5 s. Harmless
+        when it isn't running."""
         with self._lock:
-            connection, self._connection = self._connection, None
-        if connection is not None:
+            running, self._running = self._running, None
+        if running is None:
+            return
+        if running.connection is not None:
             try:
-                protocol.write_message(connection, {"op": "stop", "id": 0})
-                protocol.read_message(connection)
+                protocol.write_message(running.connection, {"op": "stop", "id": 0})
+                protocol.read_message(running.connection)
             except (OSError, EOFError):
                 pass  # already gone
-            connection.close()
-        _stop_process(self._process, grace=_STOP_TIMEOUT)
+            running.connection.close()
+        _stop_process(running.process, grace=_STOP_TIMEOUT)
 
     def __enter__(self) -> Self:
+        if not self.running:
+            self.launch()
         return self
 
     def __exit__(
@@ -303,21 +316,22 @@ class Viewer:
 
     def _request(self, op: str, **fields: Any) -> tuple[protocol.Header, bytearray]:
         with self._lock:
-            if self._connection is None:
-                raise ViewerClosed("the viewer is closed")
+            running = self._running
+            if running is None or running.connection is None:
+                raise ViewerClosed("the viewer isn't running; launch() it first")
             self._next_id += 1
             try:
                 protocol.write_message(
-                    self._connection, {"op": op, "id": self._next_id, **fields}
+                    running.connection, {"op": op, "id": self._next_id, **fields}
                 )
-                header, payload = protocol.read_message(self._connection)
+                header, payload = protocol.read_message(running.connection)
             except (OSError, EOFError) as exc:
-                self._connection.close()
-                self._connection = None
+                running.connection.close()
+                running.connection = None
                 raise ViewerClosed("the viewer has exited") from exc
         if not header.get("ok"):
             error = header.get("error")
             if error == "mode":
-                raise ModeError(f"{op} isn't available in {self.mode} mode")
+                raise ModeError(f"{op} isn't available in {self._config.mode} mode")
             raise RuntimeError(f"the viewer refused {op}: {error}")
         return header, payload

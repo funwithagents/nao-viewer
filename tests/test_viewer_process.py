@@ -10,7 +10,7 @@ import pytest
 from nao_viewer import protocol
 from nao_viewer.model import NaoPose, PoseWriter, load_world
 from nao_viewer.source import Sample, TargetInfo
-from nao_viewer.viewer_process import OffscreenRenderer, RequestServer
+from nao_viewer.viewer_process import OffscreenRenderer, RequestServer, main
 
 URL = "tcp://127.0.0.1:9559"
 
@@ -252,3 +252,20 @@ def test_offscreen_renderer_sees_the_table_from_both_cameras(world: mujoco.MjMod
     near_wood = np.linalg.norm(bottom.astype(float) - wood, axis=2) < 60
     assert near_wood.mean() > 0.2
     assert top.std() > 10  # not blank
+
+
+def test_an_invalid_config_is_a_startup_error(capsys: pytest.CaptureFixture[str]):
+    assert main(['{"naoqi": {"rate_hz": 0}}']) == 1
+    out = capsys.readouterr().out.strip()
+    assert out.startswith("NAO_VIEWER_ERROR invalid viewer config: naoqi.rate_hz")
+
+
+def test_a_missing_scene_file_is_a_startup_error(
+    capsys: pytest.CaptureFixture[str], tmp_path
+):
+    missing = tmp_path / "lab.xml"
+    assert main([f'{{"world": {{"scene": "{missing}"}}}}']) == 1
+    assert (
+        capsys.readouterr().out.strip()
+        == f"NAO_VIEWER_ERROR scene file not found: {missing}"
+    )

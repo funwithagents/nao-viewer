@@ -1,6 +1,6 @@
 # nao-viewer
 
-nao-viewer is the MuJoCo window for NAO, one of the three packages of the NAO toolkit (nao-bridge, nao-sim, nao-viewer). Its core idea is a kinematic mirror, not a physics simulation: it reads joint angles and the torso pose from any NAOqi endpoint over qi, writes them into the model's `qpos`, runs `mj_kinematics` and renders. It is a Python library: `nao_viewer.launch(url, scene=...)` starts the viewer in its own process (where MuJoCo's window and `mjpython` live) and returns a handle. The same viewer watches a real robot, or acts as nao-sim's simulated world, where nao-sim passes a scene and pulls head-camera frames to inject into `ALVideoDevice`. nao-viewer also owns the NAO model: one MJCF, converted once from the BSD-3 URDF and committed, ships in the package with styled placeholder visuals of our own. Aldebaran's meshes replace those visuals only on the user's machine, after a license-gated `fetch-meshes`, because they must never enter the repository or a package. nao-viewer depends on libqi alone, never on nao-bridge or nao-sim, so the dependency chain stays one-way.
+nao-viewer is the MuJoCo window for NAO, one of the three packages of the NAO toolkit (nao-bridge, nao-sim, nao-viewer). Its core idea is a kinematic mirror, not a physics simulation: it reads joint angles and the torso pose from any NAOqi endpoint over qi, writes them into the model's `qpos`, runs `mj_kinematics` and renders. It is a Python library: a `NaoViewer`, built from a JSON-friendly `NaoViewerConfig`, starts the viewer in its own process with `launch()` (where MuJoCo's window and `mjpython` live) and controls it. The same viewer watches a real robot, or acts as nao-sim's simulated world, where nao-sim passes a scene and pulls head-camera frames to inject into `ALVideoDevice`. nao-viewer also owns the NAO model: one MJCF, converted once from the BSD-3 URDF and committed, ships in the package with styled placeholder visuals of our own. Aldebaran's meshes replace those visuals only on the user's machine, after a license-gated `fetch-meshes`, because they must never enter the repository or a package. nao-viewer depends on libqi alone, never on nao-bridge or nao-sim, so the dependency chain stays one-way.
 
 ## Specs
 
@@ -14,9 +14,10 @@ nao-viewer is the MuJoCo window for NAO, one of the three packages of the NAO to
 | [meshes.md](meshes.md) | `fetch-meshes` license-gated install and conversion, and loading Aldebaran's meshes in place of the placeholder visuals | Draft |
 | [source.md](source.md) | Pose sources: `connect()` with retries, `NaoqiSource` polling NAOqi at 50 Hz with reconnect and target identification | Implemented |
 | [viewer.md](viewer.md) | The render loop on `mujoco.viewer.launch_passive`: pose → `mj_kinematics` at 60 Hz, status overlay, ghost, attribution | Implemented |
-| [api.md](api.md) | Public API: `launch(url, mode="mirror"\|"sim")` starts the viewer in its own process (`mjpython` on macOS) and returns a `Viewer` handle (`camera_frame`, `status`, `wait`, `close`); loopback protocol; bundled scenes | Implemented |
+| [config.md](config.md) | `NaoViewerConfig`: mode, NAOqi, world, ghost; `from_dict`/`from_json`/`from_json_file`, `to_dict`, `ConfigError` naming the key; example files | Implemented |
+| [api.md](api.md) | Public API: `NaoViewer(config)` with `launch()` starting the viewer in its own process (`mjpython` on macOS), `camera_frame`, `status`, `wait`, `close`; loopback protocol; bundled scenes | Implemented |
 | [check_model.md](check_model.md) | `check-model`: forward-kinematics cross-check against NAOqi, 2 mm / 1° | Draft |
-| [cli.md](cli.md) | Thin `nao-viewer` command: `view`, `check-model`, `fetch-meshes` | Draft |
+| [cli.md](cli.md) | Thin `nao-viewer` command: `view --config`, `check-model`, `fetch-meshes` | Draft |
 
 Each spec also opens with a YAML **frontmatter** block declaring the `code:` and `tests:` files it governs — the spec → code/tests mapping the spec-drift checks use to scope what they compare. Keep it current when files move, and see [AGENTS.md](../AGENTS.md) ("Spec frontmatter") for the full convention.
 

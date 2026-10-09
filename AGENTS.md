@@ -16,6 +16,7 @@ Where things live. This is a coarse, module-level map — for the full file inve
 | `tests/` | Fast, deterministic, no-network tests; mirrors the `src/nao_viewer/` module structure |
 | `tests-e2e/` | Opt-in live tests against a running NAOqi given by `NAOQI_URL` (not collected by default `pytest`) |
 | `typings/` | Local type stubs for pyright (a partial `mujoco` stub: its compiled bindings carry no types) |
+| `examples/configs/` | Ready-to-use viewer config files, kept in sync with [config.md](specs/config.md) by a test |
 | `third_party/` | Vendored third-party sources with their licenses (the NAO URDF the model was converted from) — see `THIRD_PARTY_NOTICES.md` |
 
 ### `src/nao_viewer/` modules
@@ -26,7 +27,8 @@ Where things live. This is a coarse, module-level map — for the full file inve
 |---|---|---|
 | [`src/nao_viewer/__init__.py`](src/nao_viewer/__init__.py) | Package glue (exempt from the spec rule) | — |
 | [`src/nao_viewer/source.py`](src/nao_viewer/source.py) | Pose sources: `connect` with retries, `NaoqiSource` polling NAOqi with reconnection and target identification | [source.md](specs/source.md) |
-| [`src/nao_viewer/client.py`](src/nao_viewer/client.py) | The caller's side: `launch` and the `Viewer` handle (standard library + numpy only) | [api.md](specs/api.md) |
+| [`src/nao_viewer/config.py`](src/nao_viewer/config.py) | `NaoViewerConfig`: the viewer's declarative config, its loaders and `ConfigError` | [config.md](specs/config.md) |
+| [`src/nao_viewer/client.py`](src/nao_viewer/client.py) | The caller's side: `NaoViewer`, built from a config, launching and driving a viewer process (standard library + numpy only) | [api.md](specs/api.md) |
 | [`src/nao_viewer/protocol.py`](src/nao_viewer/protocol.py) | Message framing between a caller and its viewer process | [api.md](specs/api.md) |
 | [`src/nao_viewer/viewer_process.py`](src/nao_viewer/viewer_process.py) | The viewer process: world, pose source, request server, window, camera renders | [api.md](specs/api.md) |
 | [`src/nao_viewer/viewer.py`](src/nao_viewer/viewer.py) | The window: `ViewerState` (posing, status overlay, ghost, attribution) and `run` on MuJoCo's passive viewer | [viewer.md](specs/viewer.md) |

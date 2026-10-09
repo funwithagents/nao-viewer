@@ -1,6 +1,6 @@
 """A fake viewer process for client tests: speaks the protocol, no MuJoCo, no window, no NAOqi.
 
-`launch` runs it in place of `python -m nao_viewer.viewer_process <config>` (see test_client.py).
+`NaoViewer.launch()` runs it in place of `python -m nao_viewer.viewer_process <config>` (see test_client.py).
 NAO_FAKE_VIEWER picks a scripted behavior; NAO_FAKE_VIEWER_OPS names a file where each received op
 is appended, one per line.
 """
@@ -15,9 +15,13 @@ import numpy as np
 
 from nao_viewer import protocol
 
-config = json.loads(sys.argv[1])
+config = json.loads(sys.argv[1])  # NaoViewerConfig.to_dict()
 behavior = os.environ.get("NAO_FAKE_VIEWER", "")
 ops_file = os.environ.get("NAO_FAKE_VIEWER_OPS")
+config_file = os.environ.get("NAO_FAKE_VIEWER_CONFIG")
+if config_file:
+    with open(config_file, "w") as f:
+        json.dump(config, f)
 
 
 def log(line: str) -> None:
@@ -74,7 +78,7 @@ try:
                 mode=config["mode"],
                 target="nao-sim",
                 naoqi_version="0.3.0",
-                url=config["url"],
+                url=config["naoqi"]["url"],
                 variant="placeholder",
                 rate=50.0,
                 pose_seq=12,

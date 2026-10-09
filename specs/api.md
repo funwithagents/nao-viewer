@@ -19,15 +19,15 @@ tests:
 
 ## Purpose
 
-The public interface of nao-viewer: Python functions that open a viewer on a NAO and return a handle to control it. Each viewer runs in its own process. MuJoCo's window, OpenGL and the macOS `mjpython` requirement stay inside that process, so the caller only sees a plain Python object.
+The public interface of nao-viewer: a `NaoViewer` object, built from a configuration ([config.md](config.md)), that opens a viewer on a NAO and controls it. Each viewer runs in its own process. MuJoCo's window, OpenGL and the macOS `mjpython` requirement stay inside that process, so the caller only sees a plain Python object.
 
 ## Decided
 
-### Two modes, one argument
+### Two modes
 
-The mode is an argument of `launch`, because it changes what the viewer does:
+The mode is the `mode` field of the config, at its top level, because it changes what the viewer does:
 
-| | `mode="mirror"` | `mode="sim"` |
+| | `"mode": "mirror"` | `"mode": "sim"` |
 |---|---|---|
 | For | Watching any NAO, typically a real robot | nao-sim's simulated world (or a plain virtual robot) |
 | Pose | From NAOqi | From NAOqi |
@@ -39,34 +39,47 @@ Both modes run the same [viewer loop](viewer.md) and [pose source](source.md). T
 ### Public API (`nao_viewer`)
 
 ```python
-import nao_viewer
+from nao_viewer import NaoViewer, NaoViewerConfig
 
-with nao_viewer.launch("tcp://127.0.0.1:9559", mode="sim", scene="table") as viewer:
-    frame = viewer.camera_frame("top", 640, 480)      # RGB numpy image
+config = NaoViewerConfig.from_json_file("examples/configs/sim-table.json")
+with NaoViewer(config) as viewer:                    # launch() on enter, close() on exit
+    frame = viewer.camera_frame("top", 640, 480)     # RGB numpy image
     print(viewer.status())
-    viewer.wait()                                     # until the window is closed
+    viewer.wait()                                    # until the window is closed
+
+viewer = NaoViewer()                                 # the default config: mirror, local NAOqi, empty scene
+viewer.launch()
+...
+viewer.close()
 ```
 
 ```python
-def launch(naoqi_url: str, *, mode: Literal["mirror", "sim"] = "mirror",
-           scene: str | Path | None = None, variant: Literal["auto", "placeholder", "aldebaran"] = "auto", ghost: bool = False,
-           rate_hz: float = 50, timeout: float = 30.0) -> Viewer
+class NaoViewer:
+    def __init__(self, config: NaoViewerConfig | None = None) -> None    # cheap: no process, no window
+    @classmethod
+    def from_dict(cls, data) -> NaoViewer                 # NaoViewer(NaoViewerConfig.from_dict(data))
+    @classmethod
+    def from_json(cls, text: str) -> NaoViewer
+    @classmethod
+    def from_json_file(cls, path: str | Path) -> NaoViewer
+    @property
+    def config(self) -> NaoViewerConfig                   # read-only
 
-class Viewer:
-    mode: Literal["mirror", "sim"]
+    def launch(self) -> None                              # start the viewer process; returns once the window is up
     def camera_frame(self, camera: Literal["top", "bottom"], width: int, height: int) -> CameraFrame
     def status(self) -> ViewerStatus
-    def wait(self, timeout: float | None = None) -> bool    # True once the viewer has exited
+    def wait(self, timeout: float | None = None) -> bool  # True once the viewer has exited (or was never launched)
     @property
     def running(self) -> bool
-    def close(self) -> None                                  # also a context manager
+    def close(self) -> None
+    # context manager: __enter__ launches (unless running), __exit__ closes
 
 @dataclass(frozen=True)
 class CameraFrame:
     image: np.ndarray        # (height, width, 3) uint8 RGB, row 0 = top of the image
     camera: str
     pose_seq: int            # Sample.seq the frame was rendered at (0: no pose yet)
-    pose_age: float          # data age of that pose, s
+    pose_age: float | None   # data age of that pose, s (None: no pose yet)
 
 @dataclass(frozen=True)
 class ViewerStatus:
@@ -80,28 +93,31 @@ class ViewerStatus:
     data_age: float | None   # s; None before the first sample
 
 class LaunchError(RuntimeError): ... # the viewer process couldn't start (message + its stderr tail)
-class ViewerClosed(Exception): ...   # raised by calls after the viewer has exited
+class ViewerClosed(Exception): ...   # the viewer isn't running: never launched, closed, or exited
 class ModeError(Exception): ...      # the request isn't available in this mode
 ```
 
-- `scene` is either a bundled scene name (`"empty"`, `"table"`) or a path to a user MJCF file ([model.md](model.md), Scenes). When it is omitted, both modes use `"empty"`: by default the world is NAO alone on a floor. A caller that wants something in front of the cameras passes a scene, for example `scene="table"`.
-- `launch` returns once the viewer is up, even if NAOqi is unreachable. The viewer keeps reconnecting ([source.md](source.md)), and `status().data_age` stays `None` until poses arrive. Errors only the viewer process can detect (an unknown scene, `variant="aldebaran"` without installed meshes) are reported by the viewer process and raised from `launch` as `LaunchError`.
+- **Building and launching are separate.** The constructor only keeps the config: it has no side effects and can't fail on the machine (a bad config fails earlier, as a `ConfigError`, when it is built). `launch()` does the work: it starts the viewer process and opens the window, and is the one place that raises `LaunchError`.
+- **One `NaoViewer` is one window.** `launch()` while the viewer is running raises `RuntimeError`; two windows are two `NaoViewer` objects. Once the viewer has exited (window closed, `close()`), `launch()` opens a new window with the same config.
+- **Calls need a running viewer.** `camera_frame` and `status` before `launch()`, after `close()`, or after the window was closed raise `ViewerClosed`. `close()` is harmless in any state.
+- The scene is `config.world.scene`: a bundled scene name (`"empty"`, `"table"`) or a path to a user MJCF file ([model.md](model.md), Scenes). The default, in both modes, is `"empty"`: NAO alone on a floor. A caller that wants something in front of the cameras sets a scene, for example `"table"`.
+- `launch()` returns once the viewer is up, even if NAOqi is unreachable. The viewer keeps reconnecting ([source.md](source.md)), and `status().data_age` stays `None` until poses arrive. Errors only the viewer process can detect (a missing scene file, `variant: "aldebaran"` without installed meshes, no display) are reported by the viewer process and raised from `launch()` as `LaunchError`.
 - `camera_frame` is checked on the client side first, so mirror mode raises `ModeError` without a round trip; the viewer process refuses it too. In sim mode it blocks until the frame is rendered, which takes about one frame (17 ms) plus render time. Calls from several threads are serialized.
-- `nao_viewer/__init__.py` exports only the names above. Importing it loads neither `mujoco` nor `qi`: `client.py` uses the standard library and `numpy` only, so importing nao-viewer costs nao-sim nothing.
+- `nao_viewer/__init__.py` exports exactly: `NaoViewer`, `NaoViewerConfig`, `NaoqiSettings`, `WorldSettings`, `ConfigError` ([config.md](config.md)), `CameraFrame`, `ViewerStatus`, `LaunchError`, `ViewerClosed`, `ModeError`. Importing it loads neither `mujoco` nor `qi`: `client.py` and `config.py` use the standard library and `numpy` only, so importing nao-viewer costs nao-sim nothing.
 
 ### Viewer process (`viewer_process.py`)
 
-Two processes are involved. The **caller's process** is the program that calls `nao_viewer.launch()`, for example nao-sim's host program. It imports only `client.py` and `protocol.py`. The **viewer process** is a separate operating-system process that `launch` starts. It runs `viewer_process.py`, which loads MuJoCo, connects to NAOqi and owns the window. With a viewer open, `ps` shows both.
+Two processes are involved. The **caller's process** is the program that calls `NaoViewer.launch()`, for example nao-sim's host program. It imports only `client.py`, `config.py` and `protocol.py`. The **viewer process** is a separate operating-system process that `launch()` starts. It runs `viewer_process.py`, which loads MuJoCo, connects to NAOqi and owns the window. With a viewer open, `ps` shows both.
 
-- `launch` starts `<python> -m nao_viewer.viewer_process <JSON config>` as a subprocess:
+- `launch()` starts `<python> -m nao_viewer.viewer_process <config JSON>` as a subprocess, where the config JSON is `config.to_dict()` ([config.md](config.md)); the viewer process rebuilds the `NaoViewerConfig` with `from_dict`, so both processes read one format:
   - `<python>` is `mjpython` next to `sys.executable` on macOS, and `sys.executable` elsewhere.
-  - If `mjpython` is missing, `launch` raises `LaunchError` saying why.
+  - If `mjpython` is missing, `launch()` raises `LaunchError` saying why.
 - The viewer process loads the world ([model.md](model.md)), builds a `NaoqiSource` ([source.md](source.md)), then runs the [viewer](viewer.md) loop. Every viewer has a window.
-- It binds a loopback port, and once the window has drawn its first frame prints `NAO_VIEWER_READY port=<n> protocol=1` on stdout; on an error before that (unknown scene, missing meshes) it prints `NAO_VIEWER_ERROR <message>` and exits 1. Waiting for the first frame means `launch` returns with the window actually open, and a window that can't open (no display) is a launch failure. `launch` waits for that line up to `timeout` (other stdout lines, such as libqi's own log lines, which it writes to stdout, are relayed at `DEBUG`), then connects and sends `hello`. On a timeout, an early exit or `NAO_VIEWER_ERROR`, `launch` kills the viewer process if needed and raises `LaunchError` with the tail of its stderr.
-- **Lifetime is tied to the caller**: the viewer process exits when its control connection closes. That covers `close()`, and the caller's process exiting or crashing, so a viewer window is never orphaned. It also exits if no connection arrives within `timeout` of its ready line (a caller that gave up). Closing the window also ends the viewer process; the next call raises `ViewerClosed`, and `wait()` returns.
+- It binds a loopback port, and once the window has drawn its first frame prints `NAO_VIEWER_READY port=<n> protocol=1` on stdout; on an error before that (unknown scene, missing meshes) it prints `NAO_VIEWER_ERROR <message>` and exits 1. Waiting for the first frame means `launch()` returns with the window actually open, and a window that can't open (no display) is a launch failure. `launch()` waits for that line up to `launch_timeout_s` (other stdout lines, such as libqi's own log lines, which it writes to stdout, are relayed at `DEBUG`), then connects and sends `hello`. On a timeout, an early exit or `NAO_VIEWER_ERROR`, `launch()` kills the viewer process if needed and raises `LaunchError` with the tail of its stderr.
+- **Lifetime is tied to the caller**: the viewer process exits when its control connection closes. That covers `close()`, and the caller's process exiting or crashing, so a viewer window is never orphaned. It also exits if no connection arrives within `launch_timeout_s` of its ready line (a caller that gave up). Closing the window also ends the viewer process; the next call raises `ViewerClosed`, `wait()` returns, and `launch()` may open a new window.
 - A server thread reads requests and queues them; the render loop answers them all through the viewer's `on_frame` hook ([viewer.md](viewer.md)), between frames. Camera renders must happen there, on the thread that owns the renderers' OpenGL contexts, and answering every op in one place keeps the state consistent; a reply waits at most one frame (17 ms). There is one `mujoco.Renderer` per requested resolution, using the model cameras `CameraTop`/`CameraBottom`, with the model's offscreen buffer enlarged when a request needs it. A frame reports the `seq` and age of the sample the model was posed with. In mirror mode no renderer is created, and `camera_frame` is refused with the error `mode`.
 - `close()` sends `stop`, waits up to 5 s, then terminates the viewer process.
-- **Viewer-process logs reach the caller's logging**: after the ready line, the viewer process logs to stderr, one record per line, with its level in the line. A reader thread in `client.py` drains stderr and passes each line to the `nao_viewer.viewer_process` logger at that level. Lines without a level (a native crash, MuJoCo's own prints) go out at `DEBUG`. A working viewer is quiet in a default log, and a problem inside it shows up in the caller's log without extra setup. The reader also keeps the last 50 lines, which `launch` includes in its error when the viewer process fails to start.
+- **Viewer-process logs reach the caller's logging**: after the ready line, the viewer process logs to stderr, one record per line, with its level in the line. A reader thread in `client.py` drains stderr and passes each line to the `nao_viewer.viewer_process` logger at that level. Lines without a level (a native crash, MuJoCo's own prints) go out at `DEBUG`. A working viewer is quiet in a default log, and a problem inside it shows up in the caller's log without extra setup. The reader also keeps the last 50 lines, which `launch()` includes in its error when the viewer process fails to start.
 
 ### Protocol (`protocol.py`)
 

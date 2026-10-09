@@ -4,18 +4,21 @@ from nao_viewer.client import (
     CameraFrame,
     LaunchError,
     ModeError,
-    Viewer,
+    NaoViewer,
     ViewerClosed,
     ViewerStatus,
-    launch,
 )
+from nao_viewer.config import ConfigError, NaoqiSettings, NaoViewerConfig, WorldSettings
 
 __all__ = [
     "CameraFrame",
+    "ConfigError",
     "LaunchError",
     "ModeError",
-    "Viewer",
+    "NaoViewer",
+    "NaoViewerConfig",
+    "NaoqiSettings",
     "ViewerClosed",
     "ViewerStatus",
-    "launch",
+    "WorldSettings",
 ]

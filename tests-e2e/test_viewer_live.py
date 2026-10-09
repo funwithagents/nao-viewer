@@ -6,7 +6,7 @@ import numpy as np
 import qi
 from support import require_env
 
-import nao_viewer
+from nao_viewer import NaoViewer, NaoViewerConfig
 
 
 def _head_can_move(url: str) -> bool:
@@ -32,7 +32,10 @@ def _move_head(url: str, yaw: float) -> None:
 
 def test_sim_mode_serves_real_camera_frames():
     url = require_env("NAOQI_URL")
-    with nao_viewer.launch(url, mode="sim", scene="table") as viewer:
+    config = NaoViewerConfig.from_dict(
+        {"mode": "sim", "naoqi": {"url": url}, "world": {"scene": "table"}}
+    )
+    with NaoViewer(config) as viewer:
         deadline = time.monotonic() + 10
         while viewer.status().data_age is None:
             assert time.monotonic() < deadline, "no pose from NAOqi"
@@ -60,6 +63,6 @@ def test_sim_mode_serves_real_camera_frames():
 
 def test_mirror_mode_opens_and_reports_status():
     url = require_env("NAOQI_URL")
-    with nao_viewer.launch(url) as viewer:
-        assert viewer.mode == "mirror"
+    with NaoViewer.from_dict({"naoqi": {"url": url}}) as viewer:
+        assert viewer.config.mode == "mirror"
         assert viewer.status().url == url

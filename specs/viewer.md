@@ -52,7 +52,7 @@ Steps 1 and 2 live in a `ViewerState` class (posing, overlay texts, ghost geoms,
 - a joint lagging behind during a fast movement;
 - a weak or overheating motor that can't hold its target.
 
-It is off by default: it costs one more NAOqi call per poll, and when nothing is wrong it shows nothing. It is turned on with `launch(..., ghost=True)` ([api.md](api.md)) or `nao-viewer view --ghost` ([cli.md](cli.md)).
+It is off by default: it costs one more NAOqi call per poll, and when nothing is wrong it shows nothing. It is turned on with `"ghost": true` in the viewer's config ([config.md](config.md)), for `NaoViewer` ([api.md](api.md)) as for `nao-viewer view --config` ([cli.md](cli.md)).
 
 **How it is drawn.**
 

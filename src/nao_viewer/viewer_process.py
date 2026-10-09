@@ -1,11 +1,10 @@
-"""The viewer process: `python -m nao_viewer.viewer_process <JSON config>` (on macOS, under mjpython).
+"""The viewer process: `python -m nao_viewer.viewer_process <config JSON>` (on macOS, under mjpython).
 
 Started by nao_viewer.launch(). It loads the world, polls NAOqi, owns the window, and answers its
 caller over one loopback connection (protocol.py). It exits when that connection closes, when the
 window is closed, or on `stop`.
 """
 
-import json
 import logging
 import queue
 import socket
@@ -15,12 +14,14 @@ import time
 from collections.abc import Callable
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as package_version
+from pathlib import Path
 from typing import Any
 
 import mujoco
 import numpy as np
 
 from nao_viewer import protocol
+from nao_viewer.config import ConfigError, NaoViewerConfig, is_scene_path
 from nao_viewer.model import load_world, resolve_variant
 from nao_viewer.source import NaoqiSource, PoseSource, Sample
 from nao_viewer.viewer import ATTRIBUTION, run
@@ -236,33 +237,33 @@ class RequestServer:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run a viewer from its config (`NaoViewerConfig.to_dict()` as JSON, the one argument)."""
     args = sys.argv[1:] if argv is None else argv
-    config = json.loads(args[0])
     logging.basicConfig(
         stream=sys.stderr,
         level=logging.INFO,
         format="%(levelname)s %(name)s: %(message)s",
     )
-    mode, url = config["mode"], config["url"]
 
     def fail(message: str) -> int:
         print(f"{protocol.ERROR_PREFIX} {' '.join(message.split())}", flush=True)
         return 1
 
     try:
-        variant = resolve_variant(config.get("variant", "auto"))
-        model = load_world(
-            config.get("scene"),  # None: load_world's default, "empty"
-            variant,
-            name=f"nao-viewer · {mode} · {url}",
-        )
+        config = NaoViewerConfig.from_json(args[0])
+    except ConfigError as exc:
+        return fail(f"invalid viewer config: {exc}")
+    mode, url, scene = config.mode, config.naoqi.url, config.world.scene
+    if is_scene_path(scene) and not Path(scene).is_file():
+        return fail(f"scene file not found: {scene}")
+    try:
+        variant = resolve_variant(config.world.variant)
+        model = load_world(scene, variant, name=f"nao-viewer · {mode} · {url}")
     except (ValueError, FileNotFoundError) as exc:
         return fail(str(exc))
 
     listener = socket.create_server(("127.0.0.1", 0))
-    source = NaoqiSource(
-        url, rate_hz=config.get("rate_hz", 50), commanded=config.get("ghost", False)
-    )
+    source = NaoqiSource(url, rate_hz=config.naoqi.rate_hz, commanded=config.ghost)
     renderer = OffscreenRenderer() if mode == "sim" else None
     server = RequestServer(
         listener,
@@ -271,13 +272,13 @@ def main(argv: list[str] | None = None) -> int:
         variant=variant,
         source=source,
         render=renderer,
-        accept_timeout=config.get("timeout", 30.0),
+        accept_timeout=config.launch_timeout_s,
     )
     try:
         run(
             model,
             source,
-            ghost=config.get("ghost", False),
+            ghost=config.ghost,
             attribution=ATTRIBUTION if variant == "aldebaran" else None,
             on_frame=server.on_frame,
             stop=server.stop,

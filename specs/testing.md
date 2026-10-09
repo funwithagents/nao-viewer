@@ -55,9 +55,9 @@ nao-viewer owns a small mock rather than borrowing one from nao-bridge, which si
 
 The real viewer process (a MuJoCo window, OpenGL, a subprocess) only runs in the live tier. The fast tier tests both sides of the protocol without it:
 
-- **Client side (`tests/`)**: `client.py` is tested against a **fake viewer process** (`tests/fake_viewer_process.py`): a small script speaking the protocol with canned frames and scripted failures, which `launch` starts as a real subprocess in place of `viewer_process` (tests swap the command `launch` runs). Being a real subprocess, it exercises the ready line, stderr relaying, early exits and timeouts as well as the handshake, message encoding, `ModeError` on the client side, `ViewerClosed`, and calls from several threads.
+- **Client side (`tests/`)**: `client.py` is tested against a **fake viewer process** (`tests/fake_viewer_process.py`): a small script speaking the protocol with canned frames and scripted failures, which `NaoViewer.launch()` starts as a real subprocess in place of `viewer_process` (tests swap the command it runs). Being a real subprocess, it exercises the ready line, stderr relaying, early exits and timeouts as well as the handshake, message encoding, `ModeError` on the client side, `ViewerClosed`, and calls from several threads.
 - **Viewer-process side (`tests/`)**: the viewer process's request handling (queueing, mirror refusing `camera_frame`, `status`) is called directly with the render function stubbed. No subprocess and no OpenGL.
-- **Live (`tests-e2e/`)**: `nao_viewer.launch(NAOQI_URL, mode="sim")` starts the real viewer process with its window, on a developer machine with a display. The test fetches real frames, checks they aren't blank, and checks that they change when the head moves.
+- **Live (`tests-e2e/`)**: a `NaoViewer` in sim mode on `NAOQI_URL` starts the real viewer process with its window, on a developer machine with a display. The test fetches real frames, checks they aren't blank, and checks that they change when the head moves.
 
 ## Test isolation
 
