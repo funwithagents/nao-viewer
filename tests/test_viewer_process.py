@@ -5,6 +5,7 @@ import sys
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import NoReturn
 
 import mujoco
 import numpy as np
@@ -25,6 +26,14 @@ from nao_viewer.source import Sample, TargetInfo
 from nao_viewer.viewer_process import OffscreenRenderer, RequestServer, main
 
 URL = "tcp://127.0.0.1:9559"
+
+
+def no_offscreen_gl(reason: str) -> NoReturn:
+    """Skip a test that needs offscreen OpenGL, or fail it where the run requires it (CI sets
+    NAO_VIEWER_REQUIRE_OFFSCREEN_GL=1, so a runner that lost its GL fails instead of passing)."""
+    if os.environ.get("NAO_VIEWER_REQUIRE_OFFSCREEN_GL"):
+        pytest.fail(f"offscreen OpenGL is required on this run, and {reason}")
+    pytest.skip(reason)
 
 
 @dataclass
@@ -254,7 +263,7 @@ def test_offscreen_renderer_sees_the_table_from_both_cameras(world: mujoco.MjMod
                 world, data, "CameraTop", 800, 600
             )  # larger than the default buffer
         except Exception as exc:  # noqa: BLE001
-            pytest.skip(f"no OpenGL for offscreen rendering here: {exc}")
+            no_offscreen_gl(f"no OpenGL for offscreen rendering here: {exc}")
         bottom = renderer(world, data, "CameraBottom", 320, 240)
     finally:
         renderer.close()
@@ -336,7 +345,7 @@ def offscreen_gl() -> None:
     )
     if result.returncode != 0:
         tail = result.stderr.strip().splitlines()[-1:] or ["no output"]
-        pytest.skip(
+        no_offscreen_gl(
             f"no offscreen OpenGL here ({tail[0]}); on Linux install libegl1 libopengl0 libgl1-mesa-dri"
         )
 

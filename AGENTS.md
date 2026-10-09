@@ -17,6 +17,7 @@ Where things live. This is a coarse, module-level map — for the full file inve
 | `tests-e2e/` | Opt-in live tests against a running NAOqi given by `NAOQI_URL` (not collected by default `pytest`) |
 | `typings/` | Local type stubs for pyright (a partial `mujoco` stub: its compiled bindings carry no types) |
 | `examples/configs/` | Ready-to-use viewer config files, kept in sync with [config.md](specs/config.md) by a test |
+| `.github/workflows/` | CI: lint/types, the fast tier and the live tier on nao-sim's NAOqi 2.1 — see [ci.md](specs/ci.md) |
 | `third_party/` | Vendored third-party sources with their licenses (the NAO URDF the model was converted from) — see `THIRD_PARTY_NOTICES.md` |
 
 ### `src/nao_viewer/` modules
